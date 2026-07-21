@@ -1,0 +1,465 @@
+﻿
+
+3F ADVANCED TECHNO LABS PVT. LTD.
+www.3fat.in
+
+TECHNICAL PROPOSAL
+
+MioSalon Extension Platform
+Chrome Extension + Web App + Custom API
+Dr. Jo’s Skin Revive Clinic
+
+Prepared For:
+Prepared By:
+Dr. Jo’s Skin Revive Clinic
+3F Advanced Techno Labs Pvt. Ltd.
+MioSalon Standard Plan User
+www.3fat.in
+
+Version 1.0  •  July 2025  •  CONFIDENTIAL
+
+
+1. Executive Summary
+Dr. Jo’s Skin Revive Clinic currently uses MioSalon (Standard Plan) as its primary clinic management platform for appointments, billing, patient records, and day-to-day operations. The clinic’s team is well-versed in MioSalon and relies on it comfortably. There is no intent to migrate away from this system.
+However, MioSalon’s Standard Plan does not support custom patient intake forms, additional clinical field groups, extended patient profile views, or custom report generation — capabilities that are essential for a specialist dermatology and aesthetic practice.
+3F Advanced Techno Labs Pvt. Ltd. proposes a lightweight, non-invasive extension layer that sits on top of MioSalon without replacing it. The solution consists of three tightly integrated components:
+
+①  A Chrome Extension that injects custom UI panels directly into the MioSalon web interface
+②  A Next.js Web Application as the backend portal for managing forms, fields, field groups, and reports
+③  A PostgreSQL Database storing all extended patient data, form submissions, and custom field definitions
+
+The clinic continues using MioSalon exactly as before. The extension augments the MioSalon interface with additional panels for intake forms, custom fields, and reports — all appearing natively within the same browser window.
+This engagement is scoped for a single full-stack developer over 6 weeks (approximately 1.5 months).
+
+2. Current State & Problem Statement
+2.1 What MioSalon Standard Plan Provides
+MioSalon Standard Plan delivers a solid core of clinic operations that the Dr. Jo’s team uses daily:
+Appointment booking and calendar management
+Patient records with standard demographic fields
+Billing, invoicing, and payment tracking
+Staff and role management
+Basic reporting on appointments and revenue
+
+2.2 Gaps for a Specialist Dermatology Practice
+A specialist dermatology and aesthetic clinic requires additional clinical data capture that MioSalon Standard Plan does not support:
+
+Custom Intake Forms
+No ability to create procedure-specific onboarding forms for new patients (skin type, allergy history, treatment consent pre-screening, etc.)
+Custom Field Groups
+Patient profiles cannot be extended with grouped clinical fields (e.g. Skin Assessment, Laser History, Medical Clearance)
+Custom Field Types
+No support for dropdowns, multi-select, date pickers, or signature fields beyond standard MioSalon fields
+Extended Patient Views
+No way to surface custom clinical data within the patient profile view inside MioSalon
+Custom Reports
+Standard reports cover appointments and revenue only; no custom clinical or operational reports
+
+The objective of this engagement is to close these gaps without disrupting the clinic’s existing MioSalon workflows.
+
+3. Proposed Solution
+The proposed solution is a three-component extension platform that augments MioSalon’s Standard Plan interface without any integration into MioSalon’s internals or API. All components work together transparently.
+
+3.1 Component 1 — Chrome Extension (UI Injection Layer)
+The Chrome Extension is the user-facing component. It is installed once on clinic computers and runs automatically when staff open MioSalon in Chrome.
+
+Detects the active MioSalon page (patient profile, appointment, new patient form) using DOM observation
+Injects a custom side panel or embedded section into the MioSalon UI showing additional clinical fields relevant to the current patient
+Renders the client onboarding intake form when a new patient record is opened
+Displays custom field groups (e.g. Skin Assessment, Laser History) as collapsible sections within the patient profile page
+Loads and saves all custom field data via the Next.js backend API — MioSalon’s own data is never modified
+Supports digital signature capture inline within injected forms (canvas-based)
+Extension is silent and non-intrusive — MioSalon’s own UI remains fully functional
+
+3.2 Component 2 — Next.js Web Application (Admin Portal + API)
+The Next.js application serves two purposes: a REST API consumed by the Chrome Extension, and an admin portal for clinic managers to configure forms and view reports.
+
+Form Builder: create and manage intake form templates with drag-and-drop field arrangement
+Field Group Manager: define custom field groups and the fields within them (text, dropdown, multi-select, date, boolean, signature, textarea)
+Patient Data Portal: view extended patient data by MioSalon patient ID, with all custom field groups displayed
+Report Builder: generate custom clinical reports by date range, field value, or patient segment
+Export: CSV and PDF export for custom reports
+REST API: all Chrome Extension read/write operations go through authenticated API endpoints
+Deployed on Vercel (zero-maintenance hosting) or any cloud VM
+
+3.3 Component 3 — PostgreSQL Database (Extended Data Store)
+PostgreSQL stores all data created by the extension layer. MioSalon’s own database is not touched.
+
+Patient extended profiles keyed on MioSalon patient ID
+Intake form templates and submitted form responses
+Custom field group definitions and field value records per patient
+Digital signature blobs linked to patient + form submission records
+Audit log of all field edits with timestamp and staff user ID
+
+4. How It Works — User Flow
+From the clinic staff perspective, the workflow is simple and requires no change to how MioSalon is used:
+
+Step 1 — Open MioSalon
+Staff open MioSalon in Chrome as normal. The extension loads silently in the background.
+Step 2 — Open a Patient Profile
+When a patient profile page loads, the extension detects the patient ID from the URL/DOM and fetches their extended data from the Next.js API.
+Step 3 — Custom Panel Appears
+A custom panel is injected alongside the standard MioSalon patient view, showing all configured field groups (Skin Assessment, Laser History, Medical Clearance, etc.).
+Step 4 — New Patient Intake
+For new patients, the extension injects the intake form as an additional step within the MioSalon new patient flow. Staff fill the form; data saves to the PostgreSQL backend.
+Step 5 — Save Extended Data
+Staff fill or update custom fields. On save, the extension calls the Next.js API to persist the data. No MioSalon data is changed.
+Step 6 — Reports
+Clinic managers open the Next.js admin portal (separate URL) to run custom reports, export data, or update form/field configurations.
+
+5. Technical Architecture & Stack
+
+Layer
+Technology
+Purpose
+Chrome Extension
+Manifest V3 (Chrome Extension)
+DOM injection, patient ID detection, API calls, inline form rendering
+Extension UI
+React + Tailwind CSS
+Component-based injected panels and form renderer inside MioSalon pages
+Web App / API
+Next.js 14 (App Router)
+Admin portal (form builder, reports) + REST API endpoints for extension
+Auth
+NextAuth.js / JWT
+Staff login for admin portal; API key / signed token for extension calls
+Database
+PostgreSQL (Neon serverless)
+Extended patient data, form definitions, field values, audit logs
+ORM
+Drizzle ORM
+Type-safe schema definition and query layer for PostgreSQL
+File / Signatures
+Vercel Blob / S3
+Storage for digital signature images and PDF exports
+PDF Export
+React-PDF / Puppeteer (server)
+Patient intake summary and custom report PDF generation
+Hosting — App
+Vercel
+Zero-config Next.js deployment with automatic preview environments
+Hosting — DB
+Neon (Postgres serverless)
+Managed PostgreSQL, no server maintenance, free tier to start
+CI/CD
+GitHub Actions
+Automated build and deploy on push to main
+
+6. Data Architecture
+6.1 Core Data Model
+All records are keyed on the MioSalon patient ID extracted from the MioSalon page URL/DOM — no API access to MioSalon is required.
+
+patients
+Extended patient profile (miosalon_patient_id, clinic_id, created_at, metadata)
+form_templates
+Intake form definitions (name, fields[], version, active flag)
+form_submissions
+Submitted intake forms per patient (patient_id, template_id, data JSONB, submitted_at, staff_id)
+field_groups
+Custom field group definitions (name, description, display_order, active)
+field_definitions
+Field specs within a group (name, type, options[], required, display_order)
+field_values
+Actual field values per patient per field (patient_id, field_id, value, updated_at, updated_by)
+signatures
+Signature blobs linked to form submission (submission_id, blob_url, signed_at)
+audit_log
+Immutable log of all create/update events (table, record_id, staff_id, old_value, new_value, ts)
+
+6.2 Key Design Decisions
+MioSalon patient ID is used as the foreign key throughout — extracted directly from the browser DOM, no MioSalon API needed
+Field values stored as typed JSONB columns for flexibility as field configurations evolve
+Form template versions are immutable once submissions exist — new versions create a new template record
+Audit log is append-only; no application role can update or delete audit records
+
+7. Chrome Extension — Technical Detail
+7.1 Manifest V3 Structure
+manifest.json
+Permissions: activeTab, storage, identity. Host permissions scoped to *.miosalon.com only
+background.js
+Service worker: manages auth token refresh and cross-tab state
+content_script.js
+Injected into MioSalon pages: DOM observation, patient ID extraction, panel mounting
+popup.html / js
+Extension toolbar popup: staff login, connection status, quick-access links
+injected_ui/
+React components compiled and bundled (Webpack/Vite) for injection into MioSalon DOM
+
+7.2 DOM Injection Strategy
+Content script uses MutationObserver to detect MioSalon page navigation (SPA route changes)
+Patient ID extracted from URL path pattern (e.g. /patients/12345) and confirmed against DOM element
+Extension appends a shadow DOM root to a stable MioSalon container element to prevent style conflicts
+Injected panels use scoped CSS (Tailwind prefix or CSS modules) — no bleed into MioSalon styles
+Graceful degradation: if a MioSalon DOM element changes, the extension logs an error and hides the panel without breaking MioSalon
+
+7.3 API Communication
+All extension API calls go to the hosted Next.js backend over HTTPS
+Extension authenticates using a short-lived JWT issued at staff login (popup login flow)
+API responses are cached in extension storage for 60 seconds to reduce latency on page navigation
+Optimistic UI updates: field saves show immediately in the panel while the API call completes in the background
+
+8. Custom Forms & Field Groups
+8.1 Client Onboarding Intake Form
+A configurable intake form displayed when a new patient record is first opened in MioSalon. Default sections include:
+Personal background: preferred name, date of birth, occupation, referral source
+Skin profile: skin type, primary concerns, known sensitivities, previous treatments
+Medical background: chronic conditions, current medications, allergies, contraindications
+Consent pre-screening: yes/no checkboxes for procedure eligibility questions
+Digital signature block: patient signature captured on touch screen or via mouse
+All sections and fields are configurable by the clinic admin in the Next.js portal. New fields can be added without any code change.
+
+8.2 Custom Field Groups (Patient Profile Extension)
+Field groups appear as collapsible sections inside the injected panel on the patient profile page. Example groups:
+
+Skin Assessment
+Fitzpatrick skin type, TEWL rating, sebum level, pigmentation notes, last assessment date
+Laser History
+Treatment dates, device used, energy settings, session count, response notes
+Medical Clearance
+Cleared by (doctor name), clearance date, conditions noted, expiry date
+Before/After Notes
+Structured before and after observation text blocks per treatment episode
+Lifestyle Factors
+Sun exposure habits, skincare routine, diet notes, stress indicators
+New field groups can be created in the admin portal at any time and will appear in the Chrome Extension immediately.
+
+8.3 Supported Field Types
+Short text, long text (textarea)
+Number, decimal
+Single-select dropdown, multi-select checklist
+Date, date range
+Boolean (yes/no toggle)
+Digital signature (canvas capture)
+Section header (non-input, for visual grouping within a form)
+
+9. Custom Reports
+The Next.js admin portal includes a report builder that operates entirely on data stored in the PostgreSQL database. Reports are not dependent on MioSalon’s own reporting.
+
+New Patient Intake Report
+All intake form submissions by date range; exportable as CSV or PDF
+Custom Field Value Report
+Filter patients by any custom field value (e.g. all patients with Fitzpatrick Type IV skin)
+Incomplete Intake Report
+Patients who have attended but have no submitted intake form on record
+Consent Status Report
+Patients with / without completed digital signature on intake form
+Field Audit Report
+All changes to a specific patient’s custom fields with timestamp and staff user
+All reports support date range filtering, column selection, CSV export, and PDF export.
+
+
+10. Effort Estimate — 6-Week Delivery Plan
+Scoped for one full-stack developer working standard hours over 6 weeks (approximately 30 working days). The plan is structured in three two-week sprints.
+
+Sprint Breakdown
+Sprint
+Focus
+Key Deliverables
+Duration
+Sprint 1
+Foundation + Data Layer
+Project setup, DB schema, Next.js API scaffolding, Auth, Chrome Extension shell + DOM injection proof of concept, Patient ID detection
+Week 1–2
+Sprint 2
+Core Features
+Form Builder UI, Field Group Manager, Chrome Extension panels (intake form + field group view), API endpoints for read/write, signature capture, basic admin portal
+Week 3–4
+Sprint 3
+Reports + Polish + Deploy
+Custom report builder, CSV/PDF export, MioSalon DOM stability hardening, error handling, UAT fixes, Vercel + Neon production deploy, staff walkthrough
+Week 5–6
+
+Detailed Task Breakdown
+The table below maps each deliverable to the sprint week in which it is targeted, with day estimates.
+
+Deliverable / Task
+Week 1–2
+Week 3–4
+Week 5–6
+Est. Days
+SPRINT 1 — Foundation & Data Layer
+
+
+
+
+Next.js project setup, repo, CI/CD pipeline (GitHub Actions + Vercel)
+✓
+
+
+2
+PostgreSQL schema design + Drizzle ORM setup (Neon)
+✓
+
+
+2
+NextAuth.js staff auth (login, JWT, protected routes)
+✓
+
+
+2
+Chrome Extension scaffold (Manifest V3, Vite build, popup)
+✓
+
+
+1
+Content script: MioSalon DOM observation + patient ID extraction
+✓
+
+
+2
+Shadow DOM injection proof of concept on MioSalon patient page
+✓
+
+
+1
+REST API: base structure, auth middleware, error handling
+✓
+
+
+2
+SPRINT 2 — Core Features
+
+
+
+
+Admin portal: Form Builder UI (field types, ordering, preview)
+
+✓
+
+3
+Admin portal: Field Group Manager (create groups, add fields)
+
+✓
+
+2
+REST API: form template CRUD, field group CRUD, patient data endpoints
+
+✓
+
+2
+Chrome Extension: Intake form panel (render, fill, submit, signature)
+
+✓
+
+3
+Chrome Extension: Custom field group panels (read + edit + save)
+
+✓
+
+3
+Digital signature capture (canvas) + blob upload to storage
+
+✓
+
+2
+Audit log middleware (auto-log all field value changes)
+
+✓
+
+1
+SPRINT 3 — Reports + Polish + Deploy
+
+
+
+
+Admin portal: Report builder UI + 5 default report types
+
+
+✓
+3
+CSV export for all reports
+
+
+✓
+1
+PDF export (React-PDF) for intake form summary and reports
+
+
+✓
+2
+MioSalon DOM selector hardening + MutationObserver stability
+
+
+✓
+2
+Extension error handling + graceful degradation
+
+
+✓
+1
+Production deploy: Vercel + Neon + Chrome Extension package
+
+
+✓
+1
+UAT support, staff walkthrough, bug fixes
+
+
+✓
+2
+
+Total estimated effort: 42 developer-days across 6 weeks (including 2 buffer days for UAT fixes and deployment).
+
+11. Scope Boundaries
+In Scope
+Chrome Extension for Google Chrome browser on clinic desktop/laptop computers
+Client onboarding intake form with configurable fields and digital signature
+Custom field groups injected into the MioSalon patient profile page
+Next.js admin portal: form builder, field group manager, report builder
+5 pre-built report types with CSV and PDF export
+PostgreSQL database hosted on Neon serverless
+Production deployment on Vercel + Neon
+Staff training walkthrough session
+
+Out of Scope
+Any modification to MioSalon’s own data, database, or API
+Mobile app or Safari/Firefox browser support (Chrome only)
+Integration with external payment gateways or SMS/WhatsApp notifications
+Patient-facing self-service intake portal (can be added in a future phase)
+Automated migration of existing paper records into the system
+MioSalon API integration (Standard Plan does not expose a public API)
+
+12. Risks & Mitigations
+MioSalon DOM changes
+MioSalon may update its UI and change DOM selectors. Mitigated by using multiple selector fallbacks, MutationObserver re-detection, and a DOM health check on extension load that alerts admin if selectors break.
+Chrome Extension policy
+Chrome Web Store policies or enterprise Chrome policies may restrict extension installation. Mitigated by offering the extension as a developer-mode sideload for internal clinic use (no Store listing required).
+Data sync correctness
+Extension reads patient ID from DOM; if MioSalon changes URL pattern, linking breaks. Mitigated by using two independent extraction methods (URL pattern + DOM element) with fallback.
+Scope creep
+Additional field types or report customisations requested during build. Managed via a defined backlog; items outside scope are queued for Phase 2.
+
+13. Commercial Summary
+Engagement Model
+Fixed-price, single full-stack developer
+Duration
+6 to 8  weeks (approx. 1.5 months) from confirmed SOW
+Team
+1 Full-Stack Developer (Next.js, PostgreSQL, Chrome Extension)
+Payment
+Rs 1.75 Lakhs + GST 
+Payment Schedule
+50% on SOW signing • 50% on production go-live
+Post-Launch Support
+2 weeks of bug-fix support included post go-live
+Hosting Cost (Est.)
+Vercel Hobby/Pro: ₹0 – ₹1,700/month • Neon Free/Pro: ₹0 – ₹1,200/month (payable by client directly)
+Source Code
+Full code ownership and repository access transferred to client on final payment
+
+14. Next Steps
+Step 1
+Review and approve this proposal
+Step 2
+Sign SOW and confirm Sprint 1 start date
+Step 3
+Provide access to one clinic Chrome browser for DOM inspection session (30 min, no MioSalon credentials required by 3FAT)
+Step 4
+Share list of required intake form fields and custom field groups to pre-configure
+Step 5
+Sprint 1 kickoff — daily async updates via WhatsApp/email throughout the engagement
+
+Leading the Digital Frontier — Pioneering in AI, Data and Digital Solutions
+
+3F Advanced Techno Labs Pvt. Ltd.  •  www.3fat.in
+

@@ -1,0 +1,18 @@
+{
+  "name": "miosalon-extension",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "icons": "node scripts/gen-icons.js",
+    "dev": "vite build --watch",
+    "build": "npm run icons && vite build",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.287",
+    "@types/node": "^22.10.2",
+    "esbuild": "^0.28.1",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3"
+  }
+}
