@@ -12,7 +12,7 @@ const bodySchema = z.object({
   profile: miosalonProfileSchema,
 });
 
-/** Save MioSalon Customer 360 fields scraped by the extension into patients.metadata */
+/** Save Customer 360 fields scraped by the extension into patients.metadata */
 export async function POST(req: Request, { params }: Params) {
   const auth = await requireAuth(req);
   if (!auth) return unauthorized();

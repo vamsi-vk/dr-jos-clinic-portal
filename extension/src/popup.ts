@@ -116,7 +116,7 @@ loginBtn.addEventListener("click", async () => {
         ? "Request timed out. Start the web app: cd web && npm run dev"
         : err instanceof Error && err.message
           ? err.message
-          : "Could not reach API. Is http://localhost:3002 running?";
+          : "Could not reach API. Is http://localhost:4200 running?";
     setMessage(msg, "err");
   } finally {
     loginBtn.disabled = false;

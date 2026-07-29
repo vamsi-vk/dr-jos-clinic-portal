@@ -6,6 +6,8 @@ const ALLOWED_ORIGINS = [
   "http://127.0.0.1:3000",
   "http://localhost:3002",
   "http://127.0.0.1:3002",
+  "http://localhost:4200",
+  "http://127.0.0.1:4200",
 ];
 
 function isAllowedOrigin(origin: string | null) {

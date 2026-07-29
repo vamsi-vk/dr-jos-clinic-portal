@@ -1,17 +1,22 @@
+import { Skeleton } from "@/components/ui/empty-state";
+
 export default function DashboardLoading() {
   return (
-    <main className="mx-auto max-w-5xl animate-pulse px-6 py-8 sm:py-10">
+    <div className="mx-auto max-w-6xl">
       <div className="mb-10 space-y-3">
-        <div className="h-4 w-40 rounded bg-stone-200" />
-        <div className="h-10 w-64 rounded-lg bg-stone-200" />
-        <div className="h-4 w-full max-w-xl rounded bg-stone-100" />
+        <Skeleton className="h-3 w-24" />
+        <Skeleton className="h-9 w-72" />
+        <Skeleton className="h-4 w-full max-w-xl" />
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="h-40 rounded-2xl bg-stone-200 sm:col-span-2 lg:col-span-1" />
-        <div className="h-40 rounded-2xl bg-stone-100" />
-        <div className="h-40 rounded-2xl bg-stone-100" />
+      <div className="grid gap-4 md:grid-cols-12">
+        <Skeleton className="h-48 rounded-xl md:col-span-4" />
+        <div className="grid gap-4 sm:grid-cols-3 md:col-span-8">
+          <Skeleton className="h-40 rounded-xl" />
+          <Skeleton className="h-40 rounded-xl" />
+          <Skeleton className="h-40 rounded-xl" />
+        </div>
       </div>
-      <div className="mt-10 h-56 rounded-2xl bg-stone-100" />
-    </main>
+      <Skeleton className="mt-6 h-64 rounded-xl" />
+    </div>
   );
 }

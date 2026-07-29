@@ -47,6 +47,9 @@ export async function GET(req: Request, { params }: Params) {
 
 const saveSchema = z.object({
   data: z.record(z.string(), z.unknown()),
+  networkId: z.string().min(1).optional().nullable(),
+  storeId: z.string().min(1).optional().nullable(),
+  activeUserId: z.string().min(1).optional().nullable(),
 });
 
 /** Save form answers (extension + portal) */
@@ -78,6 +81,10 @@ export async function PUT(req: Request, { params }: Params) {
     return jsonError("Invalid payload", 400, parsed.error.flatten());
   }
 
+  const networkId = parsed.data.networkId?.trim() || null;
+  const storeId = parsed.data.storeId?.trim() || null;
+  const activeUserId = parsed.data.activeUserId?.trim() || null;
+
   let patient = await getPatient(auth.clinicId, miosalonPatientId);
   if (!patient) {
     const [created] = await db
@@ -87,15 +94,21 @@ export async function PUT(req: Request, { params }: Params) {
     patient = created;
   }
 
+  const conditions = [
+    eq(formSubmissions.patientId, patient.id),
+    eq(formSubmissions.templateId, params.templateId),
+  ];
+  if (networkId) {
+    conditions.push(eq(formSubmissions.networkId, networkId));
+  }
+  if (storeId) {
+    conditions.push(eq(formSubmissions.storeId, storeId));
+  }
+
   const [existing] = await db
     .select()
     .from(formSubmissions)
-    .where(
-      and(
-        eq(formSubmissions.patientId, patient.id),
-        eq(formSubmissions.templateId, params.templateId)
-      )
-    )
+    .where(and(...conditions))
     .orderBy(desc(formSubmissions.submittedAt))
     .limit(1);
 
@@ -106,6 +119,9 @@ export async function PUT(req: Request, { params }: Params) {
       .set({
         data: parsed.data.data,
         staffId: auth.id,
+        networkId: networkId ?? existing.networkId,
+        storeId: storeId ?? existing.storeId,
+        activeUserId: activeUserId ?? existing.activeUserId,
         submittedAt: new Date(),
       })
       .where(eq(formSubmissions.id, existing.id))
@@ -118,6 +134,9 @@ export async function PUT(req: Request, { params }: Params) {
         templateId: params.templateId,
         data: parsed.data.data,
         staffId: auth.id,
+        networkId,
+        storeId,
+        activeUserId,
       })
       .returning();
   }

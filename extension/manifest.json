@@ -1,14 +1,14 @@
 {
   "manifest_version": 3,
-  "name": "MioSalon Extension - Dr. Jo's Skin Revive",
-  "description": "Custom intake forms, field groups, and clinical panels for MioSalon Standard Plan",
+  "name": "Clinic Extension — Dr. Jo's Skin Revive",
+  "description": "Custom intake forms, field groups, and clinical panels for your salon workflow",
   "version": "0.1.0",
   "permissions": ["storage", "activeTab"],
   "host_permissions": [
     "https://miosalon.com/*",
     "https://*.miosalon.com/*",
     "http://localhost:3000/*",
-    "http://localhost:3002/*"
+    "http://localhost:4200/*"
   ],
   "background": {
     "service_worker": "background.js",
@@ -21,14 +21,26 @@
         "https://www.miosalon.com/*",
         "https://*.miosalon.com/*"
       ],
+      "js": ["page-hook.js"],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "https://miosalon.com/*",
+        "https://www.miosalon.com/*",
+        "https://*.miosalon.com/*"
+      ],
       "js": ["content.js"],
-      "run_at": "document_idle",
+      "run_at": "document_start",
+      "world": "ISOLATED",
       "all_frames": false
     }
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "MioSalon Extension"
+    "default_title": "Clinic Extension"
   },
   "icons": {
     "16": "icons/icon16.png",

@@ -15,8 +15,9 @@ function copyManifestAndIcons() {
     fs.readFileSync(path.resolve(__dirname, "manifest.json"), "utf8")
   );
   manifest.background.service_worker = "background.js";
-  manifest.content_scripts[0].js = ["content.js"];
-  delete manifest.content_scripts[0].type;
+  manifest.content_scripts[0].js = ["page-hook.js"];
+  manifest.content_scripts[1].js = ["content.js"];
+  for (const script of manifest.content_scripts) delete script.type;
   manifest.action.default_popup = "popup.html";
   fs.writeFileSync(
     path.resolve(outDir, "manifest.json"),
@@ -31,16 +32,22 @@ function copyManifestAndIcons() {
   }
 }
 
-function bundleContentScriptIife() {
-  buildSync({
-    entryPoints: [path.resolve(__dirname, "src/content.ts")],
-    bundle: true,
-    outfile: path.resolve(__dirname, "dist/content.js"),
-    format: "iife",
-    platform: "browser",
-    target: "chrome100",
-    logLevel: "info",
-  });
+function bundleContentScriptsIife() {
+  for (const [entry, outfile] of [
+    ["src/page-hook.ts", "dist/page-hook.js"],
+    ["src/content.ts", "dist/content.js"],
+  ]) {
+    buildSync({
+      entryPoints: [path.resolve(__dirname, entry)],
+      bundle: true,
+      outfile: path.resolve(__dirname, outfile),
+      format: "iife",
+      platform: "browser",
+      target: "chrome100",
+      logLevel: "info",
+      packages: "bundle",
+    });
+  }
 }
 
 export default defineConfig({
@@ -65,7 +72,7 @@ export default defineConfig({
     {
       name: "copy-extension-assets",
       closeBundle() {
-        bundleContentScriptIife();
+        bundleContentScriptsIife();
         copyManifestAndIcons();
         const nested = path.resolve(__dirname, "dist/src/popup.html");
         const flat = path.resolve(__dirname, "dist/popup.html");

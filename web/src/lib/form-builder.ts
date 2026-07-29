@@ -7,6 +7,7 @@ export const FIELD_TYPE_OPTIONS: { type: FormField["type"]; label: string }[] = 
   { type: "select", label: "Dropdown" },
   { type: "boolean", label: "Yes / No" },
   { type: "date", label: "Date" },
+  { type: "signature", label: "Signature" },
   { type: "section", label: "Section heading" },
 ];
 

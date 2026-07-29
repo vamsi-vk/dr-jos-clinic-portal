@@ -34,7 +34,7 @@ export function NavigationLoading() {
       setShowBar(false);
       return;
     }
-    const t = window.setTimeout(() => setShowBar(true), 120);
+    const t = window.setTimeout(() => setShowBar(true), 100);
     return () => window.clearTimeout(t);
   }, [pending]);
 
@@ -54,11 +54,11 @@ export function NavigationLoading() {
 
   return (
     <div
-      className="pointer-events-none fixed inset-x-0 top-0 z-[200] h-0.5 overflow-hidden bg-teal-100/80 lg:left-64"
+      className="pointer-events-none fixed inset-x-0 top-0 z-[200] h-0.5 overflow-hidden bg-accent-muted lg:left-[260px]"
       role="progressbar"
       aria-label="Loading page"
     >
-      <div className="nav-progress-bar h-full w-1/4 rounded-full bg-teal-600" />
+      <div className="nav-progress-bar h-full w-1/3 rounded-full bg-accent" />
     </div>
   );
 }

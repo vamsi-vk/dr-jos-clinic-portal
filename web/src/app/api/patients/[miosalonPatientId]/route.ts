@@ -13,7 +13,7 @@ export async function GET(req: Request, { params }: Params) {
   if (!auth) return unauthorized();
 
   const miosalonPatientId = decodeURIComponent(params.miosalonPatientId);
-  if (!miosalonPatientId) return jsonError("Missing patient ID", 400);
+  if (!miosalonPatientId) return jsonError("Missing customer ID", 400);
 
   let [patient] = await db
     .select()

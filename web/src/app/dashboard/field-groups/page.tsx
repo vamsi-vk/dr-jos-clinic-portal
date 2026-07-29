@@ -1,6 +1,11 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { listFieldGroupsForClinic } from "@/lib/patient-queries";
+import { PageHeader } from "@/components/ui/page-header";
+import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
+import { IconLayers } from "@/components/ui/icons";
 
 export default async function FieldGroupsPage() {
   const session = await getServerSession(authOptions);
@@ -8,55 +13,55 @@ export default async function FieldGroupsPage() {
   const groups = await listFieldGroupsForClinic(clinicId);
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-10">
-      <h1 className="text-3xl font-semibold text-stone-900">Field groups</h1>
-      <p className="mt-2 text-stone-600">
-        Groups of extra fields shown on each customer profile in the extension panel.
-      </p>
+    <div className="mx-auto max-w-6xl">
+      <PageHeader
+        eyebrow="Schema"
+        title="Field groups"
+        description="Groups of extra fields shown on each customer profile in the extension panel."
+      />
 
-      <div className="mt-8 space-y-6">
-        {groups.map((group) => (
-          <section
-            key={group.id}
-            className="rounded-lg border border-stone-200 bg-white shadow-sm"
-          >
-            <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-stone-100 px-5 py-4">
-              <div>
-                <h2 className="text-lg font-semibold text-stone-900">{group.name}</h2>
-                {group.description && (
-                  <p className="mt-1 text-sm text-stone-600">{group.description}</p>
-                )}
-              </div>
-              <span
-                className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                  group.active
-                    ? "bg-teal-100 text-teal-900"
-                    : "bg-stone-200 text-stone-600"
-                }`}
-              >
-                {group.active ? "Active" : "Inactive"}
-              </span>
-            </div>
-            <ul className="divide-y divide-stone-100">
-              {group.fields.map((f) => (
-                <li key={f.id} className="flex flex-wrap gap-x-4 px-5 py-3 text-sm">
-                  <span className="font-medium text-stone-800">{f.label}</span>
-                  <span className="text-stone-500">{f.name}</span>
-                  <span className="rounded bg-stone-100 px-1.5 text-xs text-stone-600">
-                    {f.type}
-                  </span>
-                  {f.required && (
-                    <span className="text-xs text-red-700">required</span>
-                  )}
-                </li>
-              ))}
-              {group.fields.length === 0 && (
-                <li className="px-5 py-4 text-sm text-stone-500">No fields yet.</li>
+      {groups.length === 0 ? (
+        <EmptyState
+          icon={<IconLayers size={22} />}
+          title="No field groups"
+          description="Seeded groups will appear here. They organize clinical fields on customer profiles."
+        />
+      ) : (
+        <div className="space-y-4">
+          {groups.map((group) => (
+            <Card key={group.id}>
+              <CardHeader
+                title={group.name}
+                description={group.description ?? undefined}
+                action={
+                  <Badge tone={group.active ? "success" : "muted"}>
+                    {group.active ? "Active" : "Inactive"}
+                  </Badge>
+                }
+              />
+              {group.fields.length === 0 ? (
+                <CardBody>
+                  <p className="text-sm text-muted-foreground">No fields yet.</p>
+                </CardBody>
+              ) : (
+                <ul className="divide-y divide-border">
+                  {group.fields.map((f) => (
+                    <li
+                      key={f.id}
+                      className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-5 py-3 text-sm sm:px-6"
+                    >
+                      <span className="font-medium text-foreground">{f.label}</span>
+                      <span className="font-mono text-xs text-muted-foreground">{f.name}</span>
+                      <Badge>{f.type}</Badge>
+                      {f.required ? <Badge tone="warning">required</Badge> : null}
+                    </li>
+                  ))}
+                </ul>
               )}
-            </ul>
-          </section>
-        ))}
-      </div>
-    </main>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

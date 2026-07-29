@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { Button } from "@/components/ui/button";
 
 export default function Error({
   error,
@@ -15,18 +16,14 @@ export default function Error({
 
   return (
     <main className="mx-auto flex min-h-screen max-w-lg flex-col items-center justify-center px-6 text-center">
-      <h1 className="font-display text-2xl font-semibold text-stone-900">Something went wrong</h1>
-      <p className="mt-3 text-sm text-stone-600">
+      <h1 className="text-2xl font-semibold tracking-tight text-foreground">Something went wrong</h1>
+      <p className="mt-3 text-sm text-muted-foreground">
         The page could not load. Try again, or restart the dev server after deleting the{" "}
-        <code className="rounded bg-stone-100 px-1">.next</code> folder.
+        <code className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-xs">.next</code> folder.
       </p>
-      <button
-        type="button"
-        onClick={() => reset()}
-        className="mt-6 rounded-lg bg-teal-800 px-4 py-2 text-sm font-medium text-white hover:bg-teal-900"
-      >
+      <Button type="button" className="mt-6" onClick={() => reset()}>
         Try again
-      </button>
+      </Button>
     </main>
   );
 }

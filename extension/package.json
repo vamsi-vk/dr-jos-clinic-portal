@@ -11,8 +11,14 @@
   "devDependencies": {
     "@types/chrome": "^0.0.287",
     "@types/node": "^22.10.2",
+    "@types/qrcode": "^1.5.6",
     "esbuild": "^0.28.1",
     "typescript": "^5.7.2",
     "vite": "^6.0.3"
+  },
+  "dependencies": {
+    "@tiptap/core": "^3.29.2",
+    "@tiptap/starter-kit": "^3.29.2",
+    "qrcode": "^1.5.4"
   }
 }

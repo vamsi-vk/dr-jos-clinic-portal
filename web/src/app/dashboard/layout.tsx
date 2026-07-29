@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import { getAppSession } from "@/lib/session";
-import { DashboardNav } from "@/components/dashboard-nav";
+import { getClinicSettings } from "@/lib/clinic-settings";
+import { DashboardShell } from "@/components/dashboard-shell";
 import { NavigationLoading } from "@/components/navigation-loading";
+import { ThemeProvider } from "@/components/theme-provider";
 
 export default async function DashboardLayout({
   children,
@@ -11,19 +13,20 @@ export default async function DashboardLayout({
   const session = await getAppSession();
   if (!session?.user) redirect("/");
 
-  return (
-    <div className="min-h-screen lg:pl-64">
-      <aside className="flex max-h-[min(100vh,100dvh)] flex-col overflow-hidden border-b border-stone-200/80 bg-white lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:w-64 lg:border-b-0 lg:border-r">
-        <DashboardNav
-          email={session.user.email ?? ""}
-          displayName={session.user.name}
-        />
-      </aside>
+  const clinicId = session.user.clinicId ?? "drjo-skin-revive";
+  const clinic = await getClinicSettings(clinicId);
 
-      <div className="relative min-w-0 flex-1 bg-stone-50/80">
+  return (
+    <ThemeProvider>
+      <DashboardShell
+        email={session.user.email ?? ""}
+        displayName={session.user.name}
+        clinicName={clinic.name}
+        clinicLogoUrl={clinic.logoUrl}
+      >
         <NavigationLoading />
         {children}
-      </div>
-    </div>
+      </DashboardShell>
+    </ThemeProvider>
   );
 }

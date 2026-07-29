@@ -41,6 +41,21 @@ async function main() {
     console.log(`Created admin: ${email}`);
   }
 
+  const clinicId = "drjo-skin-revive";
+  const [existingClinic] = await db
+    .select()
+    .from(schema.clinics)
+    .where(eq(schema.clinics.id, clinicId))
+    .limit(1);
+
+  if (!existingClinic) {
+    await db.insert(schema.clinics).values({
+      id: clinicId,
+      name: "Dr. Jo's Skin Revive",
+    });
+    console.log("Seeded default clinic profile");
+  }
+
   const [existingGroup] = await db
     .select()
     .from(schema.fieldGroups)

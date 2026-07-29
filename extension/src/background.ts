@@ -1,7 +1,7 @@
 /** Background service worker — auth token refresh + message relay */
 
 chrome.runtime.onInstalled.addListener(() => {
-  console.log("[MioSalon Extension] Installed");
+  console.log("[Clinic Extension] Installed");
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {

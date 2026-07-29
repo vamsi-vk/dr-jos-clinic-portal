@@ -9,7 +9,7 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 
-/** Extended patient profile keyed on MioSalon patient ID */
+/** Extended patient profile keyed on external customer ID */
 export const patients = pgTable(
   "patients",
   {
@@ -26,6 +26,15 @@ export const patients = pgTable(
   })
 );
 
+/** Clinic / company profile (one row per clinicId) */
+export const clinics = pgTable("clinics", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  logoKey: text("logo_key"),
+  logoUrl: text("logo_url"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 /** Staff users for admin portal login */
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -38,20 +47,28 @@ export const users = pgTable("users", {
 });
 
 /** Intake form template definitions */
-export const formTemplates = pgTable("form_templates", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  clinicId: text("clinic_id").notNull().default("drjo-skin-revive"),
-  name: text("name").notNull(),
-  description: text("description"),
-  fields: jsonb("fields")
-    .$type<FormField[]>()
-    .notNull()
-    .default([]),
-  version: integer("version").notNull().default(1),
-  active: boolean("active").notNull().default(true),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const formTemplates = pgTable(
+  "form_templates",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: text("clinic_id").notNull().default("drjo-skin-revive"),
+    name: text("name").notNull(),
+    description: text("description"),
+    fields: jsonb("fields")
+      .$type<FormField[]>()
+      .notNull()
+      .default([]),
+    version: integer("version").notNull().default(1),
+    active: boolean("active").notNull().default(true),
+    /** Public share token for QR / unauthenticated form page */
+    publicToken: text("public_token"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    publicTokenIdx: index("form_templates_public_token_idx").on(t.publicToken),
+  })
+);
 
 export type FormField = {
   id: string;
@@ -79,18 +96,58 @@ export const formSubmissions = pgTable(
   "form_submissions",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    patientId: uuid("patient_id")
-      .notNull()
-      .references(() => patients.id),
+    patientId: uuid("patient_id").references(() => patients.id),
     templateId: uuid("template_id")
       .notNull()
       .references(() => formTemplates.id),
     data: jsonb("data").$type<Record<string, unknown>>().notNull().default({}),
     staffId: uuid("staff_id").references(() => users.id),
+    /** Active host-page context captured from localStorage */
+    networkId: text("network_id"),
+    storeId: text("store_id"),
+    activeUserId: text("active_user_id"),
     submittedAt: timestamp("submitted_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
     patientIdx: index("form_submissions_patient_idx").on(t.patientId),
+    patientTemplateIdx: index("form_submissions_patient_template_idx").on(
+      t.patientId,
+      t.templateId
+    ),
+    networkIdx: index("form_submissions_network_idx").on(t.networkId),
+    storeIdx: index("form_submissions_store_idx").on(t.storeId),
+  })
+);
+
+/** Staff notes for a customer, optionally linked to a form (per network/store) */
+export const formNotes = pgTable(
+  "form_notes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    patientId: uuid("patient_id")
+      .notNull()
+      .references(() => patients.id),
+    templateId: uuid("template_id").references(() => formTemplates.id),
+    networkId: text("network_id").notNull(),
+    storeId: text("store_id").notNull(),
+    activeUserId: text("active_user_id").notNull(),
+    content: text("content").notNull().default(""),
+    staffId: uuid("staff_id").references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    patientFormNetworkIdx: index("form_notes_patient_form_network_idx").on(
+      t.patientId,
+      t.templateId,
+      t.networkId,
+      t.storeId
+    ),
+    patientNetworkIdx: index("form_notes_patient_network_idx").on(
+      t.patientId,
+      t.networkId,
+      t.storeId
+    ),
   })
 );
 

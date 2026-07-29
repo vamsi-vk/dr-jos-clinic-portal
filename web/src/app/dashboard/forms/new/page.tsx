@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/db";
 import { formTemplates } from "@/db/schema";
+import { generatePublicToken } from "@/lib/public-token";
 
 export default async function NewFormPage() {
   const session = await getServerSession(authOptions);
@@ -18,6 +19,7 @@ export default async function NewFormPage() {
       description: "",
       active: true,
       fields: [],
+      publicToken: generatePublicToken(),
     })
     .returning();
 

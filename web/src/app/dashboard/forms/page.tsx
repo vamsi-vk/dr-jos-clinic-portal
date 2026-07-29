@@ -5,17 +5,25 @@ import { getAppSession } from "@/lib/session";
 import { db } from "@/db";
 import { formTemplates } from "@/db/schema";
 import { FormTemplateList } from "@/components/form-template-list";
+import { PageHeader } from "@/components/ui/page-header";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { IconForms, IconPlus } from "@/components/ui/icons";
+import { backfillMissingPublicTokens } from "@/lib/ensure-public-token";
 
 export default async function FormsListPage() {
   const session = await getAppSession();
   if (!session?.user) redirect("/");
 
   const clinicId = session.user.clinicId ?? "drjo-skin-revive";
+  await backfillMissingPublicTokens(clinicId);
+
   const rows = await db
     .select({
       id: formTemplates.id,
       name: formTemplates.name,
       active: formTemplates.active,
+      publicToken: formTemplates.publicToken,
       fieldCount: sql<number>`jsonb_array_length(${formTemplates.fields})`.mapWith(Number),
     })
     .from(formTemplates)
@@ -28,32 +36,32 @@ export default async function FormsListPage() {
   }));
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-10">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-semibold text-stone-900">Form builder</h1>
-          <p className="mt-2 text-stone-600">
-            Build forms your team completes in the sidebar while viewing a customer in MioSalon.
-          </p>
-        </div>
-        <Link
-          href="/dashboard/forms/new"
-          className="inline-block rounded-md bg-teal-800 px-4 py-2.5 text-sm font-medium text-white hover:bg-teal-900"
-        >
-          New form
-        </Link>
-      </div>
+    <div className="mx-auto max-w-6xl">
+      <PageHeader
+        eyebrow="Forms"
+        title="Your forms"
+        description="View, manage, edit, or delete forms. Active forms appear in the Chrome extension for QR code sharing."
+        actions={
+          <Link href="/dashboard/forms/new">
+            <Button>
+              <IconPlus size={16} />
+              New form
+            </Button>
+          </Link>
+        }
+      />
 
       {templates.length === 0 ? (
-        <p className="mt-10 rounded-lg border border-dashed border-stone-300 bg-white/60 p-8 text-center text-stone-600">
-          No forms yet.{" "}
-          <Link href="/dashboard/forms/new" className="text-teal-800 hover:underline">
-            Create your first form
-          </Link>
-        </p>
+        <EmptyState
+          icon={<IconForms size={22} />}
+          title="No forms yet"
+          description="Create your first form. Once saved, it will appear here and in the extension for QR sharing."
+          actionHref="/dashboard/forms/new"
+          actionLabel="New form"
+        />
       ) : (
         <FormTemplateList templates={templates} />
       )}
-    </main>
+    </div>
   );
 }

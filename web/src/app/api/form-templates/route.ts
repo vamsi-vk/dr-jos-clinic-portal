@@ -5,6 +5,8 @@ import { formTemplates, type FormField } from "@/db/schema";
 import { jsonError, jsonOk } from "@/lib/api";
 import { requireAuth, unauthorized } from "@/lib/extension-auth";
 import { normalizeFieldOrder } from "@/lib/form-builder";
+import { generatePublicToken } from "@/lib/public-token";
+import { ensurePublicToken } from "@/lib/ensure-public-token";
 
 const fieldSchema = z.object({
   id: z.string().uuid(),
@@ -52,7 +54,15 @@ export async function GET(req: Request) {
     )
     .orderBy(desc(formTemplates.updatedAt));
 
-  return jsonOk({ templates: rows });
+  const templates = await Promise.all(
+    rows.map(async (row) => {
+      if (row.publicToken) return row;
+      const token = await ensurePublicToken(row.id);
+      return { ...row, publicToken: token ?? row.publicToken };
+    })
+  );
+
+  return jsonOk({ templates });
 }
 
 export async function POST(req: Request) {
@@ -81,6 +91,7 @@ export async function POST(req: Request) {
       description: parsed.data.description,
       active: parsed.data.active ?? true,
       fields,
+      publicToken: generatePublicToken(),
     })
     .returning();
 

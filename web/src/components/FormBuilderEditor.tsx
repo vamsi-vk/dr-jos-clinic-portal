@@ -21,6 +21,10 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import type { FormField } from "@/db/schema";
 import { FIELD_TYPE_OPTIONS, newField, normalizeFieldOrder } from "@/lib/form-builder";
+import { Button } from "@/components/ui/button";
+import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { IconPlus } from "@/components/ui/icons";
 
 type TemplatePayload = {
   id: string;
@@ -29,6 +33,9 @@ type TemplatePayload = {
   active: boolean;
   fields: FormField[];
 };
+
+const inputClass =
+  "mt-1.5 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-accent focus:ring-2 focus:ring-accent/20";
 
 function SortableFieldRow({
   field,
@@ -50,22 +57,24 @@ function SortableFieldRow({
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0.55 : 1,
   };
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`rounded-lg border bg-white p-3 ${
-        selected ? "border-teal-600 ring-1 ring-teal-600" : "border-stone-200"
+      className={`rounded-lg border bg-card p-3.5 transition ${
+        selected
+          ? "border-accent shadow-glow ring-1 ring-accent"
+          : "border-border hover:border-[color-mix(in_srgb,var(--accent)_30%,var(--border))]"
       }`}
       onClick={onSelect}
     >
       <div className="flex items-start gap-2">
         <button
           type="button"
-          className="mt-1 cursor-grab touch-none rounded px-1 text-stone-400 hover:bg-stone-100 hover:text-stone-600"
+          className="mt-0.5 cursor-grab touch-none rounded-md px-1.5 py-1 text-muted-foreground hover:bg-muted hover:text-foreground"
           {...attributes}
           {...listeners}
           aria-label="Drag to reorder"
@@ -73,11 +82,11 @@ function SortableFieldRow({
           ⋮⋮
         </button>
         <div className="min-w-0 flex-1">
-          <p className="font-medium text-stone-900">{field.label}</p>
-          <p className="text-xs text-stone-500">
-            {field.type}
-            {field.required ? " · required" : ""}
-          </p>
+          <p className="font-medium text-foreground">{field.label}</p>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            <Badge>{field.type}</Badge>
+            {field.required ? <Badge tone="warning">required</Badge> : null}
+          </div>
         </div>
         <button
           type="button"
@@ -85,25 +94,28 @@ function SortableFieldRow({
             e.stopPropagation();
             onRemove();
           }}
-          className="text-xs text-red-700 hover:underline"
+          className="text-xs font-medium text-danger hover:underline"
         >
           Remove
         </button>
       </div>
       {selected && field.type !== "section" && (
-        <div className="mt-3 space-y-2 border-t border-stone-100 pt-3" onClick={(e) => e.stopPropagation()}>
-          <label className="block text-xs font-medium text-stone-600">
+        <div
+          className="mt-3 space-y-2.5 border-t border-border pt-3"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <label className="block text-xs font-medium text-muted-foreground">
             Label
             <input
-              className="mt-1 w-full rounded border border-stone-300 px-2 py-1.5 text-sm"
+              className={inputClass}
               value={field.label}
               onChange={(e) => onChange({ ...field, label: e.target.value })}
             />
           </label>
-          <label className="block text-xs font-medium text-stone-600">
+          <label className="block text-xs font-medium text-muted-foreground">
             Field name (JSON key)
             <input
-              className="mt-1 w-full rounded border border-stone-300 px-2 py-1.5 font-mono text-sm"
+              className={`${inputClass} font-mono`}
               value={field.name}
               onChange={(e) =>
                 onChange({
@@ -113,25 +125,29 @@ function SortableFieldRow({
               }
             />
           </label>
-          <label className="flex items-center gap-2 text-xs text-stone-600">
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
             <input
               type="checkbox"
               checked={!!field.required}
               onChange={(e) => onChange({ ...field, required: e.target.checked })}
+              className="rounded border-input text-accent focus:ring-accent"
             />
             Required
           </label>
           {field.type === "select" && (
-            <label className="block text-xs font-medium text-stone-600">
+            <label className="block text-xs font-medium text-muted-foreground">
               Options (one per line)
               <textarea
-                className="mt-1 w-full rounded border border-stone-300 px-2 py-1.5 text-sm"
+                className={inputClass}
                 rows={3}
                 value={(field.options ?? []).join("\n")}
                 onChange={(e) =>
                   onChange({
                     ...field,
-                    options: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean),
+                    options: e.target.value
+                      .split("\n")
+                      .map((s) => s.trim())
+                      .filter(Boolean),
                   })
                 }
               />
@@ -140,11 +156,14 @@ function SortableFieldRow({
         </div>
       )}
       {selected && field.type === "section" && (
-        <div className="mt-3 border-t border-stone-100 pt-3" onClick={(e) => e.stopPropagation()}>
-          <label className="block text-xs font-medium text-stone-600">
+        <div
+          className="mt-3 border-t border-border pt-3"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <label className="block text-xs font-medium text-muted-foreground">
             Section title
             <input
-              className="mt-1 w-full rounded border border-stone-300 px-2 py-1.5 text-sm"
+              className={inputClass}
               value={field.label}
               onChange={(e) => onChange({ ...field, label: e.target.value })}
             />
@@ -207,61 +226,73 @@ export function FormBuilderEditor({ initial }: { initial: TemplatePayload }) {
       setMessage("Save failed");
       return;
     }
-    setMessage("Saved — extension will load this template when active.");
+    setMessage("Saved — active forms appear in the extension QR flow.");
     router.refresh();
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[200px_1fr]">
-      <aside className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-semibold text-stone-900">Add field</h2>
-        <p className="mt-1 text-xs text-stone-500">Click to add, drag to reorder</p>
-        <ul className="mt-4 space-y-1">
-          {FIELD_TYPE_OPTIONS.map((opt) => (
-            <li key={opt.type}>
-              <button
-                type="button"
-                onClick={() => addField(opt.type)}
-                className="w-full rounded-md border border-stone-200 px-3 py-2 text-left text-sm hover:border-teal-400 hover:bg-teal-50"
-              >
-                {opt.label}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </aside>
+    <div className="grid gap-5 lg:grid-cols-[220px_1fr]">
+      <Card className="h-fit lg:sticky lg:top-20">
+        <CardHeader
+          title="Add field"
+          description="Click to add, then drag to reorder"
+        />
+        <CardBody className="!pt-0">
+          <ul className="space-y-1.5">
+            {FIELD_TYPE_OPTIONS.map((opt) => (
+              <li key={opt.type}>
+                <button
+                  type="button"
+                  onClick={() => addField(opt.type)}
+                  className="flex w-full items-center gap-2 rounded-md border border-border px-3 py-2 text-left text-sm text-foreground transition hover:border-accent hover:bg-accent-muted"
+                >
+                  <IconPlus size={14} className="text-accent" />
+                  {opt.label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </CardBody>
+      </Card>
 
       <div className="space-y-4">
-        <div className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
-          <label className="block text-sm font-medium text-stone-700">
-            Form name
-            <input
-              className="mt-1 w-full rounded-md border border-stone-300 px-3 py-2"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </label>
-          <label className="mt-3 block text-sm font-medium text-stone-700">
-            Description
-            <input
-              className="mt-1 w-full rounded-md border border-stone-300 px-3 py-2"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-          </label>
-          <label className="mt-3 flex items-center gap-2 text-sm text-stone-700">
-            <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
-            Active (show in Chrome extension)
-          </label>
-        </div>
+        <Card>
+          <CardBody className="space-y-3">
+            <label className="block text-sm font-medium text-foreground">
+              Form name
+              <input
+                className={inputClass}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </label>
+            <label className="block text-sm font-medium text-foreground">
+              Description
+              <input
+                className={inputClass}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </label>
+            <label className="flex items-center gap-2 text-sm text-foreground">
+              <input
+                type="checkbox"
+                checked={active}
+                onChange={(e) => setActive(e.target.checked)}
+                className="rounded border-input text-accent focus:ring-accent"
+              />
+              Active (show in Chrome extension)
+            </label>
+          </CardBody>
+        </Card>
 
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
           <SortableContext items={fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
             <div className="space-y-2">
               {fields.length === 0 ? (
-                <p className="rounded-lg border border-dashed border-stone-300 p-8 text-center text-sm text-stone-500">
-                  Add fields from the left panel
-                </p>
+                <div className="rounded-xl border border-dashed border-border bg-card/50 px-6 py-12 text-center text-sm text-muted-foreground">
+                  Add fields from the left panel to start building this form.
+                </div>
               ) : (
                 fields.map((field) => (
                   <SortableFieldRow
@@ -273,7 +304,9 @@ export function FormBuilderEditor({ initial }: { initial: TemplatePayload }) {
                       setFields((prev) => prev.map((x) => (x.id === f.id ? f : x)))
                     }
                     onRemove={() => {
-                      setFields((prev) => normalizeFieldOrder(prev.filter((x) => x.id !== field.id)));
+                      setFields((prev) =>
+                        normalizeFieldOrder(prev.filter((x) => x.id !== field.id))
+                      );
                       if (selectedId === field.id) setSelectedId(null);
                     }}
                   />
@@ -284,15 +317,23 @@ export function FormBuilderEditor({ initial }: { initial: TemplatePayload }) {
         </DndContext>
 
         <div className="flex flex-wrap items-center gap-3">
-          <button
+          <Button
             type="button"
             onClick={save}
-            disabled={saving || !name.trim()}
-            className="rounded-md bg-teal-800 px-5 py-2.5 text-sm font-medium text-white hover:bg-teal-900 disabled:opacity-50"
+            disabled={!name.trim()}
+            loading={saving}
           >
-            {saving ? "Saving…" : "Save form"}
-          </button>
-          {message && <p className="text-sm text-teal-800">{message}</p>}
+            Save form
+          </Button>
+          {message ? (
+            <p
+              className={`text-sm ${
+                message.startsWith("Save failed") ? "text-danger" : "text-accent"
+              }`}
+            >
+              {message}
+            </p>
+          ) : null}
         </div>
       </div>
     </div>

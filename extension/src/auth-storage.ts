@@ -111,7 +111,7 @@ export async function ensureValidAuth(auth: StoredAuth): Promise<StoredAuth | nu
 }
 
 export const SESSION_EXPIRED_MESSAGE =
-  "Session expired — open the extension popup, confirm API URL is http://localhost:3002, and sign in again.";
+  "Session expired — open the extension popup, confirm API URL is http://localhost:4200, and sign in again.";
 
 export const AUTH_INVALID_MESSAGE =
-  "Could not verify sign-in — open the extension popup and sign in again (API: http://localhost:3002).";
+  "Could not verify sign-in — open the extension popup and sign in again (API: http://localhost:4200).";
