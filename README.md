@@ -1,6 +1,7 @@
-# MioSalon Extension Platform
-# Chrome Extension + Next.js Admin/API + PostgreSQL
-# Client: Dr. Jo's Skin Revive Clinic
+# dr-jos-clinic-portal
+
+Chrome Extension + Next.js Admin/API + PostgreSQL
+Client: Dr. Jo's Skin Revive Clinic
 
 ## Structure
 
@@ -82,5 +83,5 @@ The content script injects a Shadow DOM panel on `*.miosalon.com` pages and atte
 - [x] Chrome Extension scaffold + Shadow DOM POC
 - [ ] Live MioSalon DOM selector pass + production Neon/Vercel wiring
 
-**Sprint 2** — form builder, field group UI, intake/signature panels  
+**Sprint 2** — form builder, field group UI, intake/signature panels
 **Sprint 3** — reports, export, hardening, deploy
