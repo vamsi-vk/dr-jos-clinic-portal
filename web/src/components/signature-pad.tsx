@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 
 type SignaturePadProps = {
@@ -12,7 +12,6 @@ type SignaturePadProps = {
 export function SignaturePad({ value, onChange, disabled }: SignaturePadProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawing = useRef(false);
-  const [empty, setEmpty] = useState(true);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -39,7 +38,6 @@ export function SignaturePad({ value, onChange, disabled }: SignaturePadProps) {
       const img = new Image();
       img.onload = () => {
         ctx.drawImage(img, 0, 0, width, height);
-        setEmpty(false);
       };
       img.src = value;
     }
@@ -70,7 +68,6 @@ export function SignaturePad({ value, onChange, disabled }: SignaturePadProps) {
     const { x, y } = getPoint(e);
     ctx.lineTo(x, y);
     ctx.stroke();
-    setEmpty(false);
   }
 
   function endDraw(e: React.PointerEvent<HTMLCanvasElement>) {
@@ -90,7 +87,6 @@ export function SignaturePad({ value, onChange, disabled }: SignaturePadProps) {
     const height = 160;
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, width, height);
-    setEmpty(true);
     onChange(null);
   }
 
