@@ -22,9 +22,14 @@ function clean(value: string | undefined): string | undefined {
 
 function pick(text: string, label: string): string | undefined {
   const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // Prefer a single token after the label (Customer Id: JSR3191)
   const re = new RegExp(`${escaped}\\s*[:：]?\\s*([^\\n]+)`, "i");
   const m = text.match(re);
-  return clean(m?.[1]);
+  const raw = clean(m?.[1]);
+  if (!raw) return undefined;
+  // Stop at common next-field labels that may sit on the same line
+  const cut = raw.split(/\s{2,}|\t|(?=Mobile\b)|(?=Email\b)|(?=GST\b)|(?=Gender\b)/i)[0];
+  return clean(cut?.trim());
 }
 
 function pickNextLine(lines: string[], label: string): string | undefined {

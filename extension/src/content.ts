@@ -17,6 +17,7 @@ import {
   saveCapturedCustomerDetails,
   type CapturedCustomerDetails,
 } from "./customer-details";
+import { extractMiosalonProfile } from "./miosalon-profile";
 import { closeNotesDialog, notesDialogStyles, openNotesDialog, type NoteItem } from "./notes-dialog";
 import {
   getCachedPageContext,
@@ -90,7 +91,44 @@ let captureFromCurrentDocument = false;
 let lastHandledCapture = "";
 let lastSyncedProfile = "";
 
-function extractPatientId(): string | null {
+/** MioSalon URLs often use mobile in the path — that is not Customer Id. */
+function looksLikePhoneId(value: string): boolean {
+  const trimmed = value.trim();
+  const digits = trimmed.replace(/\D/g, "");
+  if (digits.length < 10 || digits.length > 15) return false;
+  return /^[\d\s+().-]+$/.test(trimmed);
+}
+
+function isRealCustomerId(value: string | null | undefined): value is string {
+  if (!value) return false;
+  const id = value.trim();
+  if (!id || /^(new|create|list)$/i.test(id)) return false;
+  return !looksLikePhoneId(id);
+}
+
+function extractCustomerIdFromInfoPanel(): string | null {
+  const profile = extractMiosalonProfile();
+  if (isRealCustomerId(profile?.customerId)) return profile!.customerId!.trim();
+
+  const labeled = (document.body?.innerText ?? "").match(
+    /Customer\s*Id\s*[:：]?\s*([A-Za-z0-9_-]+)/i
+  );
+  if (labeled?.[1] && isRealCustomerId(labeled[1])) return labeled[1].trim();
+
+  const nodes = document.querySelectorAll("label, span, div, p, td, th, li, dt, strong");
+  for (const el of nodes) {
+    const text = (el.textContent ?? "").trim();
+    if (!/^Customer\s*Id\s*:?\s*$/i.test(text)) continue;
+    const next =
+      el.nextElementSibling?.textContent?.trim() ||
+      el.parentElement?.textContent?.replace(text, "").trim();
+    const candidate = (next?.split(/\s/)[0] ?? "").trim();
+    if (isRealCustomerId(candidate)) return candidate;
+  }
+  return null;
+}
+
+function extractCustomerIdFromUrl(): string | null {
   const href = window.location.href;
   const path = window.location.pathname;
   const patterns = [
@@ -108,9 +146,23 @@ function extractPatientId(): string | null {
   for (const re of patterns) {
     const match = href.match(re) || path.match(re);
     const id = match?.[1]?.trim();
-    if (id && !/^(new|create|list)$/i.test(id)) return id;
+    if (isRealCustomerId(id)) return id;
   }
   return null;
+}
+
+/**
+ * Prefer Customer Id from the Info Panel (e.g. JSR3191).
+ * Never treat the URL phone/mobile segment as the customer ID.
+ */
+function extractPatientId(): string | null {
+  const fromPanel = extractCustomerIdFromInfoPanel();
+  if (fromPanel) return fromPanel;
+
+  const fromCapture = capturedCustomerDetails?.profile.customerId;
+  if (isRealCustomerId(fromCapture)) return fromCapture.trim();
+
+  return extractCustomerIdFromUrl();
 }
 
 function detailsForCustomer(customerId: string | null) {
@@ -132,8 +184,13 @@ async function syncCapturedProfile(
 ) {
   const details = detailsForCustomer(customerId);
   if (!details) return;
-  const profile = { ...details.profile, customerId };
-  const signature = `${customerId}:${JSON.stringify(profile)}`;
+  const panelId = details.profile.customerId;
+  const linkId = isRealCustomerId(panelId) ? panelId.trim() : customerId;
+  const profile = {
+    ...details.profile,
+    customerId: linkId,
+  };
+  const signature = `${linkId}:${JSON.stringify(profile)}`;
   if (signature === lastSyncedProfile) return;
 
   const auth = authOverride ?? await getAuth();
@@ -141,7 +198,7 @@ async function syncCapturedProfile(
 
   try {
     const response = await fetch(
-      `${auth.apiBase.replace(/\/$/, "")}/api/patients/${encodeURIComponent(customerId)}/profile`,
+      `${auth.apiBase.replace(/\/$/, "")}/api/patients/${encodeURIComponent(linkId)}/profile`,
       {
         method: "POST",
         headers: {
@@ -1270,8 +1327,15 @@ function boot() {
 window.addEventListener("message", (event: MessageEvent<unknown>) => {
   const details = parseCustomerDetailsMessage(event);
   if (!details) return;
-  const routeCustomerId = currentLinkId ?? extractPatientId();
-  if (routeCustomerId) details.profile.customerId = routeCustomerId;
+
+  // Keep API/panel Customer Id (e.g. JSR3191). Never overwrite with URL phone.
+  const panelId = extractCustomerIdFromInfoPanel();
+  if (isRealCustomerId(panelId)) {
+    details.profile.customerId = panelId;
+  } else if (!isRealCustomerId(details.profile.customerId)) {
+    delete details.profile.customerId;
+  }
+
   const captureKey = `${details.endpoint}:${details.capturedAt}`;
   if (captureKey === lastHandledCapture) return;
 
@@ -1282,6 +1346,11 @@ window.addEventListener("message", (event: MessageEvent<unknown>) => {
     console.warn("[Clinic Extension] Could not save customer details", error);
   });
 
+  const resolvedId = extractPatientId();
+  if (resolvedId && resolvedId !== currentLinkId) {
+    void updatePanel(resolvedId);
+    return;
+  }
   setPatientSection(currentLinkId, currentPageContext);
   if (currentLinkId) void syncCapturedProfile(currentLinkId);
 });
@@ -1320,6 +1389,13 @@ setInterval(() => {
   if (!document.getElementById(PANEL_HOST_ID) || !shadowRoot?.getElementById("sidebar")) {
     shellReady = false;
     shadowRoot = null;
+    scan();
+    return;
+  }
+  // Info Panel may load after the URL — pick up real Customer Id (not phone).
+  const resolved = extractPatientId();
+  if (resolved && resolved !== currentLinkId) {
+    cacheInvalidate("attached:");
     scan();
   }
 }, 800);
