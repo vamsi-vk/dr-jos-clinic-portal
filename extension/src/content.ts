@@ -30,6 +30,12 @@ import {
   viewDialogStyles,
   type FormFieldJson,
 } from "./view-dialog";
+import {
+  closeWhiteboardDialog,
+  openWhiteboardDialog,
+  whiteboardDialogStyles,
+  type WhiteboardItem,
+} from "./whiteboard-dialog";
 
 const PANEL_HOST_ID = "miosalon-ext-panel-host";
 const PAGE_LAYOUT_STYLE_ID = "miosalon-ext-page-layout";
@@ -674,8 +680,43 @@ function sidebarStyles() {
       color: #fff;
     }
     .attached-actions button.primary:hover { background: #115e59; }
+    .wb-list { margin-top: 12px; }
+    .wb-card {
+      border: 1px solid #e7e5e4;
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 8px;
+      background: #fafaf9;
+    }
+    .wb-card-date {
+      font-size: 11px;
+      color: #78716c;
+      margin-bottom: 8px;
+    }
+    .wb-card-date strong {
+      display: block;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #a8a29e;
+      margin-bottom: 2px;
+    }
+    .wb-card .wb-view-btn {
+      width: 100%;
+      border: 1px solid #d6d3d1;
+      background: #fff;
+      border-radius: 6px;
+      padding: 6px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      color: #1c1917;
+    }
+    .wb-card .wb-view-btn:hover { background: #f5f5f4; }
     ${viewDialogStyles}
     ${notesDialogStyles}
+    ${whiteboardDialogStyles}
   `;
 }
 
@@ -732,6 +773,7 @@ function ensureShell() {
           <div id="attachedTabPanel" role="tabpanel">
             <div id="attachedPanel"></div>
             <div class="section" id="notesSection"></div>
+            <div class="section" id="whiteboardSection"></div>
           </div>
           <div id="savePanel" role="tabpanel" hidden></div>
         </div>
@@ -762,6 +804,17 @@ function ensureShell() {
     const notesBtn = (ev.target as HTMLElement).closest("#openNotesBtn");
     if (notesBtn) {
       void openCustomerNotes();
+      return;
+    }
+    const whiteboardBtn = (ev.target as HTMLElement).closest("#openWhiteboardBtn");
+    if (whiteboardBtn) {
+      void openCustomerWhiteboard();
+      return;
+    }
+    const viewWbBtn = (ev.target as HTMLElement).closest("[data-view-whiteboard]") as HTMLElement | null;
+    if (viewWbBtn) {
+      const id = viewWbBtn.getAttribute("data-view-whiteboard");
+      if (id) void viewCustomerWhiteboard(id);
       return;
     }
     const qrBtn = (ev.target as HTMLElement).closest("#generateQrBtn");
@@ -890,6 +943,95 @@ function renderNotesSection() {
       currentLinkId ? "" : " disabled"
     }>Open Notes</button>
   `;
+}
+
+let cachedWhiteboards: WhiteboardItem[] = [];
+
+function renderWhiteboardSection(list?: WhiteboardItem[]) {
+  if (!shadowRoot) return;
+  const section = shadowRoot.getElementById("whiteboardSection");
+  if (!section) return;
+
+  if (list) cachedWhiteboards = list;
+
+  const items = cachedWhiteboards;
+  const listHtml = !currentLinkId
+    ? ""
+    : items.length
+      ? `<div class="wb-list">${items
+          .map((wb) => {
+            const when = new Date(wb.createdAt).toLocaleString();
+            return `
+              <div class="wb-card" data-wb-id="${escapeHtml(wb.id)}">
+                <div class="wb-card-date">
+                  <strong>Whiteboard Added Date</strong>
+                  ${escapeHtml(when)}
+                </div>
+                <button type="button" class="wb-view-btn" data-view-whiteboard="${escapeHtml(wb.id)}">View</button>
+              </div>
+            `;
+          })
+          .join("")}</div>`
+      : `<p class="muted" style="margin:10px 0 0">No whiteboards saved yet.</p>`;
+
+  section.innerHTML = `
+    <h3>Whiteboard</h3>
+    <p class="muted" style="margin:0 0 10px">${
+      currentLinkId
+        ? "Draw and save a whiteboard for this customer."
+        : "Open a customer page to use the whiteboard."
+    }</p>
+    <button type="button" class="qr-btn" id="openWhiteboardBtn"${
+      currentLinkId ? "" : " disabled"
+    }>Whiteboard</button>
+    ${listHtml}
+  `;
+}
+
+async function loadCustomerWhiteboards() {
+  if (!shadowRoot || !currentLinkId) {
+    cachedWhiteboards = [];
+    renderWhiteboardSection([]);
+    return;
+  }
+
+  const context = currentPageContext.networkId
+    ? currentPageContext
+    : getCachedPageContext();
+  const { networkId, storeId } = context;
+  if (!networkId || !storeId) {
+    cachedWhiteboards = [];
+    renderWhiteboardSection([]);
+    return;
+  }
+
+  const auth = await getAuth();
+  if (!auth.token || !auth.apiBase) {
+    cachedWhiteboards = [];
+    renderWhiteboardSection([]);
+    return;
+  }
+
+  const apiBase = auth.apiBase.replace(/\/$/, "");
+  const cacheKey = `wb:${apiBase}:${currentLinkId}:${networkId}:${storeId}`;
+  const cached = cacheGet<WhiteboardItem[]>(cacheKey);
+  if (cached) {
+    renderWhiteboardSection(cached);
+    return;
+  }
+
+  try {
+    const res = await fetch(
+      `${apiBase}/api/patients/${encodeURIComponent(currentLinkId)}/whiteboards?networkId=${encodeURIComponent(networkId)}&storeId=${encodeURIComponent(storeId)}`,
+      { headers: { Authorization: `Bearer ${auth.token}` } }
+    );
+    const body = res.ok ? await res.json() : { whiteboards: [] };
+    const whiteboards = (body.whiteboards ?? []) as WhiteboardItem[];
+    cacheSet(cacheKey, whiteboards, 15_000);
+    renderWhiteboardSection(whiteboards);
+  } catch {
+    renderWhiteboardSection([]);
+  }
 }
 
 function renderAttachedPanel() {
@@ -1079,6 +1221,7 @@ async function openCustomerNotes() {
     cacheSet(cacheKey, notes, 15_000);
   }
 
+  closeWhiteboardDialog(shadowRoot);
   openNotesDialog({
     shadowRoot,
     title: "Customer Notes",
@@ -1130,6 +1273,80 @@ async function openCustomerNotes() {
       notes = next;
       return note;
     },
+  });
+}
+
+async function openCustomerWhiteboard() {
+  if (!shadowRoot || !currentLinkId) return;
+
+  const context = currentPageContext.networkId
+    ? currentPageContext
+    : getCachedPageContext();
+  const { networkId, storeId, userId } = context;
+  if (!networkId || !storeId || !userId) {
+    const status = shadowRoot.getElementById("status");
+    if (status) {
+      status.className = "status warn";
+      status.textContent =
+        "Network, store, and user IDs are required in page local storage for whiteboard";
+    }
+    return;
+  }
+
+  const auth = await getAuth();
+  if (!auth.token || !auth.apiBase) return;
+  const apiBase = auth.apiBase.replace(/\/$/, "");
+  const cacheKey = `wb:${apiBase}:${currentLinkId}:${networkId}:${storeId}`;
+
+  closeNotesDialog(shadowRoot);
+  openWhiteboardDialog({
+    shadowRoot,
+    title: "Customer Whiteboard",
+    onClose: () => undefined,
+    onSave: async (imageData) => {
+      const res = await fetch(
+        `${apiBase}/api/patients/${encodeURIComponent(currentLinkId!)}/whiteboards`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${auth.token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            imageData,
+            networkId,
+            storeId,
+            activeUserId: userId,
+          }),
+        }
+      );
+      if (!res.ok) return null;
+      const body = await res.json();
+      const whiteboard = body.whiteboard as WhiteboardItem;
+      const next = [whiteboard, ...cachedWhiteboards];
+      cacheSet(cacheKey, next, 15_000);
+      renderWhiteboardSection(next);
+      return whiteboard;
+    },
+  });
+}
+
+async function viewCustomerWhiteboard(id: string) {
+  if (!shadowRoot) return;
+  const item = cachedWhiteboards.find((w) => w.id === id);
+  if (!item?.imageData) {
+    // Refresh list then retry once
+    await loadCustomerWhiteboards();
+  }
+  const wb = cachedWhiteboards.find((w) => w.id === id);
+  if (!wb?.imageData) return;
+
+  closeNotesDialog(shadowRoot);
+  openWhiteboardDialog({
+    shadowRoot,
+    title: "Customer Whiteboard",
+    viewImageData: wb.imageData,
+    onClose: () => undefined,
   });
 }
 
@@ -1232,6 +1449,8 @@ async function updatePanel(patientId: string | null) {
   currentPageContext = await readActivePageContext();
   setPatientSection(patientId, currentPageContext);
   renderNotesSection();
+  renderWhiteboardSection(patientId ? cachedWhiteboards : []);
+  void loadCustomerWhiteboards();
 
   const status = shadowRoot!.getElementById("status");
   if (!status) return;
@@ -1247,6 +1466,8 @@ async function updatePanel(patientId: string | null) {
     status.textContent = "Please login";
     if (attachedPanel) attachedPanel.innerHTML = "";
     if (savePanel) savePanel.innerHTML = "";
+    cachedWhiteboards = [];
+    renderWhiteboardSection([]);
     return;
   }
 
