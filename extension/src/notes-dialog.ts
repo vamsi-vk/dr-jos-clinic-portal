@@ -1,9 +1,10 @@
 /**
- * Notes dialog with TipTap rich-text editor.
+ * Notes dialog with TipTap rich-text editor + photo attach.
  * Lazy-created on first open for instant sidebar boot.
  */
 
 import { Editor } from "@tiptap/core";
+import Image from "@tiptap/extension-image";
 import StarterKit from "@tiptap/starter-kit";
 
 export type NoteItem = {
@@ -12,6 +13,10 @@ export type NoteItem = {
   createdAt: string;
   updatedAt: string;
 };
+
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+const MAX_PHOTO_EDGE = 1200;
+const PHOTO_JPEG_QUALITY = 0.78;
 
 function esc(s: string) {
   return s
@@ -25,6 +30,59 @@ function stripHtml(html: string) {
   const d = document.createElement("div");
   d.innerHTML = html;
   return (d.textContent || "").trim();
+}
+
+function hasNoteContent(html: string) {
+  if (stripHtml(html)) return true;
+  return /<img\b/i.test(html);
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(new Error("Could not read photo"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Could not load photo"));
+    img.src = src;
+  });
+}
+
+/** Resize / re-encode so notes stay reasonably small in the DB. */
+async function compressPhoto(file: File): Promise<string> {
+  if (!file.type.startsWith("image/")) {
+    throw new Error("Choose an image file (JPEG, PNG, or WebP)");
+  }
+  if (file.size > MAX_PHOTO_BYTES) {
+    throw new Error("Photo must be 5 MB or smaller");
+  }
+
+  const raw = await readFileAsDataUrl(file);
+  const img = await loadImage(raw);
+  const scale = Math.min(1, MAX_PHOTO_EDGE / Math.max(img.width, img.height));
+  const width = Math.max(1, Math.round(img.width * scale));
+  const height = Math.max(1, Math.round(img.height * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Could not process photo");
+  ctx.drawImage(img, 0, 0, width, height);
+
+  // Keep PNG when transparency likely matters; otherwise JPEG for size.
+  if (file.type === "image/png" || file.type === "image/webp") {
+    const png = canvas.toDataURL("image/png");
+    if (png.length < 1_800_000) return png;
+  }
+  return canvas.toDataURL("image/jpeg", PHOTO_JPEG_QUALITY);
 }
 
 export const notesDialogStyles = `
@@ -49,9 +107,13 @@ export const notesDialogStyles = `
     border-color: #0f766e;
     color: #fff;
   }
+  .notes-toolbar button:disabled {
+    opacity: 0.55;
+    cursor: wait;
+  }
   .notes-editor {
     min-height: 120px;
-    max-height: 200px;
+    max-height: 240px;
     overflow: auto;
     border: 1px solid #d6d3d1;
     border-radius: 8px;
@@ -64,6 +126,15 @@ export const notesDialogStyles = `
   .notes-editor:focus { outline: 2px solid rgba(15,118,110,0.25); border-color: #0f766e; }
   .notes-editor p { margin: 0 0 0.5em; }
   .notes-editor ul, .notes-editor ol { margin: 0 0 0.5em; padding-left: 1.25em; }
+  .notes-editor img,
+  .note-body img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 6px;
+    margin: 8px 0;
+    display: block;
+    border: 1px solid #e7e5e4;
+  }
   .notes-list {
     margin-bottom: 14px;
     border-bottom: 1px solid #e7e5e4;
@@ -159,7 +230,9 @@ export function openNotesDialog(opts: NotesDialogOpts) {
           <button type="button" data-cmd="italic" title="Italic"><i>I</i></button>
           <button type="button" data-cmd="bullet" title="Bullet list">• List</button>
           <button type="button" data-cmd="ordered" title="Numbered list">1. List</button>
+          <button type="button" data-cmd="photo" title="Add photo">Photo</button>
         </div>
+        <input type="file" id="notesPhotoInput" accept="image/jpeg,image/png,image/webp,image/*" hidden />
         <div class="notes-editor" id="notesEditorMount"></div>
         <div class="modal-actions">
           <button type="button" class="modal-btn" id="notesCancel">Close</button>
@@ -172,6 +245,7 @@ export function openNotesDialog(opts: NotesDialogOpts) {
   shadowRoot.appendChild(host);
 
   const mount = host.querySelector("#notesEditorMount") as HTMLElement;
+  const photoInput = host.querySelector("#notesPhotoInput") as HTMLInputElement;
   activeEditor = new Editor({
     element: mount,
     extensions: [
@@ -180,6 +254,13 @@ export function openNotesDialog(opts: NotesDialogOpts) {
         codeBlock: false,
         blockquote: false,
         horizontalRule: false,
+      }),
+      Image.configure({
+        inline: false,
+        allowBase64: true,
+        HTMLAttributes: {
+          class: "note-photo",
+        },
       }),
     ],
     content: "",
@@ -193,6 +274,13 @@ export function openNotesDialog(opts: NotesDialogOpts) {
     onTransaction: ({ editor }) => syncToolbar(host, editor),
   });
 
+  function setStatus(text: string, kind: "" | "ok" | "err" = "") {
+    const status = host.querySelector("#notesStatus");
+    if (!status) return;
+    status.textContent = text;
+    status.className = kind ? `notes-status ${kind}` : "notes-status";
+  }
+
   function renderList() {
     const list = host.querySelector("#notesList");
     if (!list) return;
@@ -205,7 +293,7 @@ export function openNotesDialog(opts: NotesDialogOpts) {
       ${localNotes
         .map((n) => {
           const when = new Date(n.updatedAt || n.createdAt).toLocaleString();
-          const preview = stripHtml(n.content) || "(empty)";
+          const preview = stripHtml(n.content) || (/<img\b/i.test(n.content) ? "(photo)" : "(empty)");
           return `
             <div class="note-item" data-note-id="${esc(n.id)}">
               <div class="note-meta">${esc(when)}</div>
@@ -226,11 +314,46 @@ export function openNotesDialog(opts: NotesDialogOpts) {
     const btn = (ev.target as HTMLElement).closest("button[data-cmd]") as HTMLButtonElement | null;
     if (!btn || !activeEditor) return;
     const cmd = btn.getAttribute("data-cmd");
+    if (cmd === "photo") {
+      photoInput.click();
+      return;
+    }
     const chain = activeEditor.chain().focus();
     if (cmd === "bold") chain.toggleBold().run();
     if (cmd === "italic") chain.toggleItalic().run();
     if (cmd === "bullet") chain.toggleBulletList().run();
     if (cmd === "ordered") chain.toggleOrderedList().run();
+  });
+
+  photoInput.addEventListener("change", () => {
+    void (async () => {
+      const file = photoInput.files?.[0];
+      photoInput.value = "";
+      if (!file || !activeEditor) return;
+
+      const photoBtn = host.querySelector(
+        '#notesToolbar button[data-cmd="photo"]'
+      ) as HTMLButtonElement | null;
+      if (photoBtn) photoBtn.disabled = true;
+      setStatus("Adding photo…");
+
+      try {
+        const src = await compressPhoto(file);
+        activeEditor
+          .chain()
+          .focus()
+          .setImage({ src, alt: file.name || "Note photo" })
+          .run();
+        setStatus("Photo added — save to keep it", "ok");
+      } catch (err) {
+        setStatus(
+          err instanceof Error ? err.message : "Could not add photo",
+          "err"
+        );
+      } finally {
+        if (photoBtn) photoBtn.disabled = false;
+      }
+    })();
   });
 
   host.querySelector("#notesList")?.addEventListener("click", (ev) => {
@@ -241,11 +364,7 @@ export function openNotesDialog(opts: NotesDialogOpts) {
     if (!note) return;
     editingId = note.id;
     activeEditor.commands.setContent(note.content || "");
-    const status = host.querySelector("#notesStatus");
-    if (status) {
-      status.textContent = "Editing note — save to update";
-      status.className = "notes-status";
-    }
+    setStatus("Editing note — save to update");
   });
 
   host.querySelector("#notesCancel")?.addEventListener("click", () => {
@@ -264,28 +383,17 @@ export function openNotesDialog(opts: NotesDialogOpts) {
     void (async () => {
       if (!activeEditor) return;
       const html = activeEditor.getHTML();
-      if (!stripHtml(html)) {
-        const status = host.querySelector("#notesStatus");
-        if (status) {
-          status.textContent = "Write a note before saving";
-          status.className = "notes-status err";
-        }
+      if (!hasNoteContent(html)) {
+        setStatus("Write a note or add a photo before saving", "err");
         return;
       }
       const saveBtn = host.querySelector("#notesSave") as HTMLButtonElement;
       saveBtn.disabled = true;
-      const status = host.querySelector("#notesStatus");
-      if (status) {
-        status.textContent = "Saving…";
-        status.className = "notes-status";
-      }
+      setStatus("Saving…");
       try {
         const saved = await onSave(html, editingId);
         if (!saved) {
-          if (status) {
-            status.textContent = "Save failed";
-            status.className = "notes-status err";
-          }
+          setStatus("Save failed", "err");
           return;
         }
         if (editingId) {
@@ -296,15 +404,9 @@ export function openNotesDialog(opts: NotesDialogOpts) {
         editingId = null;
         activeEditor.commands.clearContent();
         renderList();
-        if (status) {
-          status.textContent = "Saved";
-          status.className = "notes-status ok";
-        }
+        setStatus("Saved", "ok");
       } catch {
-        if (status) {
-          status.textContent = "Could not save note";
-          status.className = "notes-status err";
-        }
+        setStatus("Could not save note", "err");
       } finally {
         saveBtn.disabled = false;
       }
@@ -315,6 +417,7 @@ export function openNotesDialog(opts: NotesDialogOpts) {
 function syncToolbar(host: HTMLElement, editor: Editor) {
   host.querySelectorAll("#notesToolbar button[data-cmd]").forEach((btn) => {
     const cmd = btn.getAttribute("data-cmd");
+    if (cmd === "photo") return;
     let active = false;
     if (cmd === "bold") active = editor.isActive("bold");
     if (cmd === "italic") active = editor.isActive("italic");
