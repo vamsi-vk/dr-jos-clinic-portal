@@ -4,6 +4,7 @@ import { getClinicSettings } from "@/lib/clinic-settings";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { NavigationLoading } from "@/components/navigation-loading";
 import { ThemeProvider } from "@/components/theme-provider";
+import { ConfirmProvider } from "@/components/ConfirmProvider";
 
 export default async function DashboardLayout({
   children,
@@ -18,15 +19,17 @@ export default async function DashboardLayout({
 
   return (
     <ThemeProvider>
-      <DashboardShell
-        email={session.user.email ?? ""}
-        displayName={session.user.name}
-        clinicName={clinic.name}
-        clinicLogoUrl={clinic.logoUrl}
-      >
-        <NavigationLoading />
-        {children}
-      </DashboardShell>
+      <ConfirmProvider>
+        <DashboardShell
+          email={session.user.email ?? ""}
+          displayName={session.user.name}
+          clinicName={clinic.name}
+          clinicLogoUrl={clinic.logoUrl}
+        >
+          <NavigationLoading />
+          {children}
+        </DashboardShell>
+      </ConfirmProvider>
     </ThemeProvider>
   );
 }

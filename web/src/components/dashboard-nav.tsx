@@ -7,7 +7,7 @@ import { useState } from "react";
 
 const nav = [
   { href: "/dashboard", label: "Home", exact: true },
-  { href: "/dashboard/patients", label: "Inbox" },
+  { href: "/dashboard/patients", label: "Clients" },
   { href: "/dashboard/forms", label: "Forms" },
   { href: "/dashboard/field-groups", label: "Field groups" },
 ];

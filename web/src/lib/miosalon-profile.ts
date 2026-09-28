@@ -3,6 +3,7 @@ import { z } from "zod";
 export const miosalonProfileSchema = z.object({
   name: z.string().optional(),
   customerId: z.string().optional(),
+  branchId: z.string().optional(),
   mobile: z.string().optional(),
   email: z.string().optional(),
   gst: z.string().optional(),
@@ -18,7 +19,8 @@ export type MiosalonProfile = z.infer<typeof miosalonProfileSchema>;
 
 export const PROFILE_LABELS: { key: keyof MiosalonProfile; label: string }[] = [
   { key: "name", label: "Name" },
-  { key: "customerId", label: "Customer Id" },
+  { key: "customerId", label: "Customer ID" },
+  { key: "branchId", label: "Branch ID" },
   { key: "mobile", label: "Mobile" },
   { key: "email", label: "Email" },
   { key: "gst", label: "GST" },
