@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ProfileForm, type ProfileFormData } from "@/components/ProfileForm";
+import { type ProfileFormData } from "@/components/ProfileForm";
 
 export function ProfileFormDialog({
   data,

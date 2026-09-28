@@ -8,7 +8,7 @@ import { emptyProfileForm, type ProfileFormData } from "@/components/ProfileForm
 import { ProfileFormDialog } from "@/components/ProfileFormDialog";
 import { BotoxFillerSection, newBotoxEntry, type BotoxEntry } from "@/components/BotoxFillerRecord";
 import { BodyLhrSection, newBodyEntry, type BodyEntry } from "@/components/BodyLhrRecord";
-import { ClinicalNotesSection, newNote, type NoteEntry } from "@/components/ClinicalNotes";
+import { ClinicalNotesSection, type NoteEntry } from "@/components/ClinicalNotes";
 
 // ─── Column resize hook ───────────────────────────────────────────────────────
 // DOM-direct during drag — zero React re-renders while dragging.
@@ -213,10 +213,6 @@ const TABS = [
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
-
-function emptyRow(cols: { key: string }[]): Row {
-  return Object.fromEntries(cols.map((c) => [c.key, ""]));
-}
 
 function initData(): TherapySheetsData {
   return {
@@ -921,7 +917,7 @@ function normalise(d: TherapySheetsData): TherapySheetsData {
   };
 }
 
-export function TherapySheets({ miosalonPatientId, initialData, patientName, phoneNo, profileFormControlled, onProfileFormChange }: Props) {
+export function TherapySheets({ miosalonPatientId, initialData, patientName, phoneNo, profileFormControlled }: Props) {
   const [activeTab, setActiveTab] = useState<TabId>("therapySheet");
   const [data, setData] = useState<TherapySheetsData>(() => {
     const base = normalise(
@@ -978,7 +974,11 @@ export function TherapySheets({ miosalonPatientId, initialData, patientName, pho
             {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(withExternalProfile(nextData)),
+              body: JSON.stringify(
+                externalProfileFormRef.current !== undefined
+                  ? { ...nextData, profileForm: externalProfileFormRef.current }
+                  : nextData
+              ),
             }
           );
           if (!res.ok) throw new Error("Save failed");

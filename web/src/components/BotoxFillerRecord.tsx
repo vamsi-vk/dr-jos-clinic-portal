@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { SignaturePad } from "@/components/signature-pad";
 import { type Stroke, StrokeOverlay, DrawCanvas } from "@/components/FaceAnnotation";
 import { useConfirm } from "@/components/ConfirmProvider";

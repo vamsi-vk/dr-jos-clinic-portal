@@ -8,7 +8,6 @@ import {
   IconChevronLeft,
   IconHome,
   IconInbox,
-  IconLayers,
   IconLogout,
   IconMenu,
   IconSettings,
