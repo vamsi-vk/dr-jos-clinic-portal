@@ -7,6 +7,7 @@ import {
   integer,
   jsonb,
   index,
+  primaryKey,
 } from "drizzle-orm/pg-core";
 
 /** Extended patient profile keyed on external customer ID */
@@ -16,6 +17,7 @@ export const patients = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     miosalonPatientId: text("miosalon_patient_id").notNull(),
     clinicId: text("clinic_id").notNull().default("drjo-skin-revive"),
+    branch: text("branch"),
     metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -23,6 +25,7 @@ export const patients = pgTable(
   (t) => ({
     miosalonIdx: index("patients_miosalon_id_idx").on(t.miosalonPatientId),
     clinicPatientIdx: index("patients_clinic_patient_idx").on(t.clinicId, t.miosalonPatientId),
+    clinicBranchIdx: index("patients_clinic_branch_idx").on(t.clinicId, t.branch),
   })
 );
 
@@ -35,6 +38,22 @@ export const clinics = pgTable("clinics", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+/** Company profile per branch (name + logo shown in the dashboard and on shared forms) */
+export const branchSettings = pgTable(
+  "branch_settings",
+  {
+    clinicId: text("clinic_id").notNull(),
+    branch: text("branch").notNull(),
+    name: text("name").notNull(),
+    logoKey: text("logo_key"),
+    logoUrl: text("logo_url"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.clinicId, t.branch] }),
+  })
+);
+
 /** Staff users for admin portal login */
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -43,6 +62,7 @@ export const users = pgTable("users", {
   passwordHash: text("password_hash").notNull(),
   role: text("role").notNull().default("staff"), // staff | admin
   clinicId: text("clinic_id").notNull().default("drjo-skin-revive"),
+  branch: text("branch"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 

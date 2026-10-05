@@ -1,10 +1,11 @@
-import { and, eq, or } from "drizzle-orm";
+import { and, desc, eq, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { patients } from "@/db/schema";
 import { jsonError, jsonOk } from "@/lib/api";
 import { miosalonProfileSchema } from "@/lib/miosalon-profile";
 import { requireAuth, unauthorized } from "@/lib/extension-auth";
+import { noBranchAssigned, patientScopeWhere } from "@/lib/patient-scope";
 
 type Params = { params: { miosalonPatientId: string } };
 
@@ -35,6 +36,8 @@ export async function POST(req: Request, { params }: Params) {
     syncedAt: new Date().toISOString(),
   };
 
+  if (!auth.branch) return noBranchAssigned();
+
   const canonicalId = profile.customerId?.trim() || routeId;
 
   let [patient] = await db
@@ -42,13 +45,14 @@ export async function POST(req: Request, { params }: Params) {
     .from(patients)
     .where(
       and(
-        eq(patients.clinicId, auth.clinicId),
+        patientScopeWhere(auth),
         or(
           eq(patients.miosalonPatientId, canonicalId),
           eq(patients.miosalonPatientId, routeId)
         )
       )
     )
+    .orderBy(desc(patients.updatedAt))
     .limit(1);
 
   if (!patient && profile.mobile) {
@@ -59,10 +63,11 @@ export async function POST(req: Request, { params }: Params) {
         .from(patients)
         .where(
           and(
-            eq(patients.clinicId, auth.clinicId),
+            patientScopeWhere(auth),
             eq(patients.miosalonPatientId, digits)
           )
         )
+        .orderBy(desc(patients.updatedAt))
         .limit(1);
     }
   }
@@ -73,6 +78,7 @@ export async function POST(req: Request, { params }: Params) {
       .values({
         miosalonPatientId: canonicalId,
         clinicId: auth.clinicId,
+        branch: auth.branch,
         metadata: { miosalonProfile: profile },
       })
       .returning();

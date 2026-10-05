@@ -1,5 +1,6 @@
 import { getAppSession } from "@/lib/session";
-import { listPatientsForClinic } from "@/lib/patient-queries";
+import { listPatientsForScope } from "@/lib/patient-queries";
+import { getPortalScope } from "@/lib/patient-scope";
 import { profileFromMetadata } from "@/lib/miosalon-profile";
 import { OverviewDashboard, type DashboardData, type MonthBucket, type SheetStats } from "@/components/OverviewDashboard";
 
@@ -42,8 +43,8 @@ function countAnnotations(items: unknown[]): number {
 
 export default async function DashboardPage() {
   const session = await getAppSession();
-  const clinicId = session?.user?.clinicId ?? "drjo-skin-revive";
-  const patients = await listPatientsForClinic(clinicId);
+  const scope = await getPortalScope();
+  const patients = scope ? await listPatientsForScope(scope) : [];
 
   const greetingName =
     session?.user?.name?.split(" ")[0] ??

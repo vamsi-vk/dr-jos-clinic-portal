@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { ProfileFormDialog } from "@/components/ProfileFormDialog";
 import { TherapySheets } from "@/components/TherapySheets";
-import { emptyProfileForm, type ProfileFormData } from "@/components/ProfileForm";
+import { withProfileDefaults, type ProfileFormData } from "@/components/ProfileForm";
 import type { TherapySheetsData } from "@/components/TherapySheets";
 
 type Props = {
@@ -26,7 +26,7 @@ export function PatientDetailClient({
 }: Props) {
   // Initialise profileForm with auto-fill
   const [profileForm, setProfileForm] = useState<ProfileFormData>(() => {
-    const saved = initialData?.profileForm ?? emptyProfileForm();
+    const saved = withProfileDefaults(initialData?.profileForm);
     return {
       ...saved,
       idNo:    saved.idNo    || miosalonPatientId,
@@ -47,7 +47,11 @@ export function PatientDetailClient({
             <h1 className="text-balance text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
               {patientName}
             </h1>
-            <ProfileFormDialog data={profileForm} onChange={setProfileForm} />
+            <ProfileFormDialog
+              miosalonPatientId={miosalonPatientId}
+              data={profileForm}
+              onChange={setProfileForm}
+            />
           </div>
           <p className="mt-2 text-sm text-muted-foreground">
             Customer ID{" "}

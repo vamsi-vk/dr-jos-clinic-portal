@@ -1,8 +1,9 @@
 import { and, desc, eq, isNull, or } from "drizzle-orm";
 import { db } from "@/db";
-import { formSubmissions, formTemplates, patients, type FormField } from "@/db/schema";
+import { formSubmissions, formTemplates, type FormField } from "@/db/schema";
 import { jsonOk } from "@/lib/api";
 import { requireAuth, unauthorized } from "@/lib/extension-auth";
+import { findScopedPatient } from "@/lib/patient-scope";
 
 type Params = { params: { miosalonPatientId: string } };
 
@@ -20,16 +21,7 @@ export async function GET(req: Request, { params }: Params) {
   const storeId = url.searchParams.get("storeId")?.trim() || null;
   const activeUserId = url.searchParams.get("activeUserId")?.trim() || null;
 
-  const [patient] = await db
-    .select()
-    .from(patients)
-    .where(
-      and(
-        eq(patients.miosalonPatientId, miosalonPatientId),
-        eq(patients.clinicId, auth.clinicId)
-      )
-    )
-    .limit(1);
+  const patient = await findScopedPatient(auth, miosalonPatientId);
 
   if (!patient) {
     return jsonOk({ forms: [], patientId: null, networkId });

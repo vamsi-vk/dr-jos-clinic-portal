@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { AttachmentEntry } from "@/components/Attachments";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -28,6 +29,10 @@ export type ProfileFormData = {
   skinExamination: string;
   hairExamination: string;
   trichoscopyFindings: string;
+  // Page 2: whiteboard drawing (JSON-encoded strokes, "" when blank)
+  whiteboard: string;
+  // Page 3: images attached to the profile form
+  attachments: AttachmentEntry[];
 };
 
 export function emptyProfileForm(): ProfileFormData {
@@ -52,7 +57,14 @@ export function emptyProfileForm(): ProfileFormData {
     skinExamination: "",
     hairExamination: "",
     trichoscopyFindings: "",
+    whiteboard: "",
+    attachments: [],
   };
+}
+
+/** Older saved forms predate the whiteboard/attachments pages. */
+export function withProfileDefaults(saved: Partial<ProfileFormData> | null | undefined): ProfileFormData {
+  return { ...emptyProfileForm(), ...(saved ?? {}) };
 }
 
 // ─── Field components ─────────────────────────────────────────────────────────

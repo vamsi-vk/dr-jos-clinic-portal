@@ -37,6 +37,7 @@ async function main() {
       passwordHash,
       role: "admin",
       clinicId: "drjo-skin-revive",
+      branch: process.env.SEED_ADMIN_BRANCH ?? null,
     });
     console.log(`Created admin: ${email}`);
   }

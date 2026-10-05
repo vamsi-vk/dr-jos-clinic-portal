@@ -36,6 +36,7 @@ export async function GET(req: Request, { params }: Params) {
         eq(patients.clinicId, template.clinicId)
       )
     )
+    .orderBy(desc(patients.updatedAt))
     .limit(1);
 
   if (!patient) return jsonError("No submission found for this customer", 404);
@@ -71,7 +72,7 @@ export async function GET(req: Request, { params }: Params) {
 
   if (!submission) return jsonError("No submission found — submit the form first", 404);
 
-  const clinic = await getClinicSettings(template.clinicId);
+  const clinic = await getClinicSettings(template.clinicId, patient.branch);
 
   const pdfBuffer = await generateFormAgreementPdf({
     clinicName: clinic.name,

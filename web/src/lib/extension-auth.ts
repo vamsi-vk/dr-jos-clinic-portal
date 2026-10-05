@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { createHmac, timingSafeEqual } from "crypto";
 import { authOptions } from "@/lib/auth";
 import { jsonError } from "@/lib/api";
+import { loadUserBranch } from "@/lib/patient-scope";
 
 const EXTENSION_SECRET =
   process.env.EXTENSION_JWT_SECRET ?? process.env.NEXTAUTH_SECRET ?? "dev-secret-change-me";
@@ -73,6 +74,7 @@ export async function requireAuth(req: Request) {
         id: payload.sub,
         email: payload.email,
         clinicId: payload.clinicId,
+        branch: await loadUserBranch(payload.sub),
         role: payload.role,
         source: "extension" as const,
       };
@@ -85,6 +87,7 @@ export async function requireAuth(req: Request) {
       id: session.user.id,
       email: session.user.email ?? "",
       clinicId: session.user.clinicId ?? "drjo-skin-revive",
+      branch: await loadUserBranch(session.user.id),
       role: session.user.role ?? "staff",
       source: "session" as const,
     };

@@ -37,6 +37,7 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           role: user.role,
           clinicId: user.clinicId,
+          branch: user.branch,
         };
       },
     }),
@@ -47,6 +48,7 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id;
         token.role = (user as { role?: string }).role;
         token.clinicId = (user as { clinicId?: string }).clinicId;
+        token.branch = (user as { branch?: string | null }).branch ?? null;
       }
       return token;
     },
@@ -55,6 +57,7 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id as string;
         session.user.role = token.role as string;
         session.user.clinicId = token.clinicId as string;
+        session.user.branch = token.branch ?? null;
       }
       return session;
     },

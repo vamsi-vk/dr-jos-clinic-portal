@@ -2,23 +2,42 @@
 
 import { useState } from "react";
 import { type ProfileFormData } from "@/components/ProfileForm";
+import { AttachmentsSection } from "@/components/Attachments";
+import { Whiteboard } from "@/components/Whiteboard";
+
+const PAGES = [
+  { label: "Profile Form", icon: "📋" },
+  { label: "Whiteboard", icon: "✏️" },
+  { label: "Attachments", icon: "📎" },
+] as const;
 
 export function ProfileFormDialog({
+  miosalonPatientId,
   data,
   onChange,
 }: {
+  miosalonPatientId: string;
   data: ProfileFormData;
   onChange: (d: ProfileFormData) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [page, setPage] = useState(0);
 
-  const hasData = Object.values(data).some((v) => v && v.trim() !== "");
+  const hasData =
+    Object.values(data).some((v) => typeof v === "string" && v.trim() !== "") ||
+    data.attachments.length > 0;
+  const isLast = page === PAGES.length - 1;
+
+  function openDialog() {
+    setPage(0);
+    setOpen(true);
+  }
 
   return (
     <>
       {/* Trigger button */}
       <button
-        onClick={() => setOpen(true)}
+        onClick={openDialog}
         className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-800 shadow-sm hover:bg-rose-100 hover:border-rose-300 transition-all"
       >
         <span className="text-base">📋</span>
@@ -39,14 +58,14 @@ export function ProfileFormDialog({
           }}
         >
           {/* Dialog panel */}
-          <div className="relative flex w-full max-w-3xl max-h-[90vh] flex-col overflow-hidden rounded-2xl bg-[#fdf8f6] shadow-2xl ring-1 ring-rose-100">
+          <div className="relative flex w-full max-w-4xl max-h-[92vh] flex-col overflow-hidden rounded-2xl bg-[#fdf8f6] shadow-2xl ring-1 ring-rose-100">
 
             {/* Dialog header */}
             <div className="flex items-center justify-between border-b border-rose-100 bg-rose-100/80 px-6 py-4 shrink-0">
               <div className="flex items-center gap-3">
-                <span className="text-xl">📋</span>
+                <span className="text-xl">{PAGES[page].icon}</span>
                 <div>
-                  <p className="text-base font-bold text-rose-900">Profile Form</p>
+                  <p className="text-base font-bold text-rose-900">{PAGES[page].label}</p>
                   <p className="text-xs text-rose-700/60">Jo&apos;s Skin Revive — Dermatology &amp; Cosmetology Clinic</p>
                 </div>
               </div>
@@ -61,19 +80,72 @@ export function ProfileFormDialog({
               </button>
             </div>
 
+            {/* Page steps */}
+            <div className="flex shrink-0 gap-2 border-b border-rose-100 bg-white/60 px-6 py-2.5">
+              {PAGES.map((p, i) => (
+                <button
+                  key={p.label}
+                  onClick={() => setPage(i)}
+                  className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    page === i
+                      ? "bg-rose-400 text-white shadow-sm"
+                      : "text-rose-700/70 hover:bg-rose-50"
+                  }`}
+                >
+                  <span
+                    className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] ${
+                      page === i ? "bg-white/25" : "bg-rose-100 text-rose-700"
+                    }`}
+                  >
+                    {i + 1}
+                  </span>
+                  {p.label}
+                  {i === 2 && data.attachments.length > 0 && (
+                    <span className="text-[10px] opacity-80">({data.attachments.length})</span>
+                  )}
+                </button>
+              ))}
+            </div>
+
             {/* Scrollable body */}
             <div className="overflow-y-auto flex-1 p-6">
-              <ProfileFormBody data={data} onChange={onChange} />
+              {page === 0 && <ProfileFormBody data={data} onChange={onChange} />}
+              {page === 1 && (
+                <Whiteboard
+                  value={data.whiteboard}
+                  onChange={(whiteboard) => onChange({ ...data, whiteboard })}
+                />
+              )}
+              {page === 2 && (
+                <AttachmentsSection
+                  miosalonPatientId={miosalonPatientId}
+                  attachments={data.attachments}
+                  onChange={(attachments) => onChange({ ...data, attachments })}
+                />
+              )}
             </div>
 
             {/* Footer */}
-            <div className="shrink-0 border-t border-rose-100 bg-white px-6 py-4 flex justify-end">
-              <button
-                onClick={() => setOpen(false)}
-                className="rounded-xl bg-rose-400 hover:bg-rose-500 px-6 py-2.5 text-sm font-bold text-white shadow-sm transition-colors"
-              >
-                Done
-              </button>
+            <div className="shrink-0 border-t border-rose-100 bg-white px-6 py-4 flex items-center justify-between gap-3">
+              <span className="text-xs text-rose-700/60">
+                Page {page + 1} of {PAGES.length}
+              </span>
+              <div className="flex gap-2">
+                {page > 0 && (
+                  <button
+                    onClick={() => setPage((p) => p - 1)}
+                    className="rounded-xl border border-rose-200 px-5 py-2.5 text-sm font-semibold text-rose-700 hover:bg-rose-50 transition-colors"
+                  >
+                    ← Back
+                  </button>
+                )}
+                <button
+                  onClick={() => (isLast ? setOpen(false) : setPage((p) => p + 1))}
+                  className="rounded-xl bg-rose-400 hover:bg-rose-500 px-6 py-2.5 text-sm font-bold text-white shadow-sm transition-colors"
+                >
+                  {isLast ? "Done" : `Next: ${PAGES[page + 1].label} →`}
+                </button>
+              </div>
             </div>
           </div>
         </div>

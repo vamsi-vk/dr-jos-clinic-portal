@@ -1,11 +1,12 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { clinics } from "@/db/schema";
+import { branchSettings } from "@/db/schema";
 import { jsonError, jsonOk } from "@/lib/api";
-import { ensureClinic, getClinicSettings } from "@/lib/clinic-settings";
+import { ensureBranchSettings, ensureClinic, getClinicSettings } from "@/lib/clinic-settings";
 import { requireAuth, unauthorized } from "@/lib/extension-auth";
+import { noBranchAssigned } from "@/lib/patient-scope";
 import {
-  clinicLogoKey,
+  branchLogoKey,
   deleteFromR2,
   isR2Configured,
   uploadToR2,
@@ -30,6 +31,7 @@ const MAX_BYTES = 2 * 1024 * 1024;
 export async function POST(req: Request) {
   const auth = await requireAuth(req);
   if (!auth) return unauthorized();
+  if (!auth.branch) return noBranchAssigned();
 
   if (!isR2Configured()) {
     return jsonError("File storage is not configured", 503);
@@ -55,14 +57,16 @@ export async function POST(req: Request) {
     return jsonError("Logo must be 2 MB or smaller", 400);
   }
 
+  const branch = auth.branch;
   const ext = EXT_BY_TYPE[file.type] ?? "png";
-  const key = clinicLogoKey(auth.clinicId, ext);
+  const key = branchLogoKey(auth.clinicId, branch, ext);
   const buffer = Buffer.from(await file.arrayBuffer());
 
+  const current = await ensureBranchSettings(auth.clinicId, branch);
   const clinic = await ensureClinic(auth.clinicId);
-  if (clinic.logoKey && clinic.logoKey !== key) {
+  if (current.logoKey && current.logoKey !== key && current.logoKey !== clinic.logoKey) {
     try {
-      await deleteFromR2(clinic.logoKey);
+      await deleteFromR2(current.logoKey);
     } catch {
       /* old object may already be gone */
     }
@@ -70,43 +74,46 @@ export async function POST(req: Request) {
 
   const publicUrl = await uploadToR2(key, buffer, file.type);
 
-  const [updated] = await db
-    .update(clinics)
+  await db
+    .update(branchSettings)
     .set({
       logoKey: key,
       logoUrl: publicUrl,
       updatedAt: new Date(),
     })
-    .where(eq(clinics.id, auth.clinicId))
-    .returning();
+    .where(and(eq(branchSettings.clinicId, auth.clinicId), eq(branchSettings.branch, branch)));
 
-  const settings = await getClinicSettings(updated.id);
+  const settings = await getClinicSettings(auth.clinicId, branch);
   return jsonOk({ clinic: settings });
 }
 
 export async function DELETE(req: Request) {
   const auth = await requireAuth(req);
   if (!auth) return unauthorized();
+  if (!auth.branch) return noBranchAssigned();
 
+  const branch = auth.branch;
+  const current = await ensureBranchSettings(auth.clinicId, branch);
+
+  // A branch may still point at the clinic-wide logo object, which public forms also use.
   const clinic = await ensureClinic(auth.clinicId);
-
-  if (clinic.logoKey && isR2Configured()) {
+  if (current.logoKey && current.logoKey !== clinic.logoKey && isR2Configured()) {
     try {
-      await deleteFromR2(clinic.logoKey);
+      await deleteFromR2(current.logoKey);
     } catch {
       /* ignore */
     }
   }
 
   await db
-    .update(clinics)
+    .update(branchSettings)
     .set({
       logoKey: null,
       logoUrl: null,
       updatedAt: new Date(),
     })
-    .where(eq(clinics.id, auth.clinicId));
+    .where(and(eq(branchSettings.clinicId, auth.clinicId), eq(branchSettings.branch, branch)));
 
-  const settings = await getClinicSettings(auth.clinicId);
+  const settings = await getClinicSettings(auth.clinicId, branch);
   return jsonOk({ clinic: settings });
 }

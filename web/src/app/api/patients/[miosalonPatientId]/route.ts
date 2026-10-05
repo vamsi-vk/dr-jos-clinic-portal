@@ -1,9 +1,10 @@
 import { eq, and, asc, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { patients, fieldGroups, fieldDefinitions, fieldValues } from "@/db/schema";
+import { fieldGroups, fieldDefinitions, fieldValues } from "@/db/schema";
 import { jsonError, jsonOk } from "@/lib/api";
 import { requireAuth, unauthorized } from "@/lib/extension-auth";
+import { ensureScopedPatient, noBranchAssigned } from "@/lib/patient-scope";
 
 type Params = { params: { miosalonPatientId: string } };
 
@@ -15,27 +16,8 @@ export async function GET(req: Request, { params }: Params) {
   const miosalonPatientId = decodeURIComponent(params.miosalonPatientId);
   if (!miosalonPatientId) return jsonError("Missing customer ID", 400);
 
-  let [patient] = await db
-    .select()
-    .from(patients)
-    .where(
-      and(
-        eq(patients.miosalonPatientId, miosalonPatientId),
-        eq(patients.clinicId, auth.clinicId)
-      )
-    )
-    .limit(1);
-
-  if (!patient) {
-    const [created] = await db
-      .insert(patients)
-      .values({
-        miosalonPatientId,
-        clinicId: auth.clinicId,
-      })
-      .returning();
-    patient = created;
-  }
+  const patient = await ensureScopedPatient(auth, miosalonPatientId);
+  if (!patient) return noBranchAssigned();
 
   const groups = await db
     .select()
@@ -101,24 +83,8 @@ export async function PUT(req: Request, { params }: Params) {
     return jsonError("Invalid payload", 400, parsed.error.flatten());
   }
 
-  let [patient] = await db
-    .select()
-    .from(patients)
-    .where(
-      and(
-        eq(patients.miosalonPatientId, miosalonPatientId),
-        eq(patients.clinicId, auth.clinicId)
-      )
-    )
-    .limit(1);
-
-  if (!patient) {
-    const [created] = await db
-      .insert(patients)
-      .values({ miosalonPatientId, clinicId: auth.clinicId })
-      .returning();
-    patient = created;
-  }
+  const patient = await ensureScopedPatient(auth, miosalonPatientId);
+  if (!patient) return noBranchAssigned();
 
   for (const item of parsed.data.fields) {
     const [existing] = await db

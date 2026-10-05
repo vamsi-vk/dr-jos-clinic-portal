@@ -1,45 +1,20 @@
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { db } from "@/db";
 import { patients } from "@/db/schema";
 import { jsonError, jsonOk } from "@/lib/api";
+import { requireAuth, unauthorized } from "@/lib/extension-auth";
+import { ensureScopedPatient, findScopedPatient, noBranchAssigned } from "@/lib/patient-scope";
 
 type Params = { params: { miosalonPatientId: string } };
 
-async function resolvePatient(clinicId: string, miosalonPatientId: string) {
-  const [patient] = await db
-    .select()
-    .from(patients)
-    .where(
-      and(
-        eq(patients.miosalonPatientId, miosalonPatientId),
-        eq(patients.clinicId, clinicId)
-      )
-    )
-    .limit(1);
-  return patient ?? null;
-}
+export async function GET(req: Request, { params }: Params) {
+  const auth = await requireAuth(req);
+  if (!auth) return unauthorized();
 
-async function ensurePatient(clinicId: string, miosalonPatientId: string) {
-  const existing = await resolvePatient(clinicId, miosalonPatientId);
-  if (existing) return existing;
-  const [created] = await db
-    .insert(patients)
-    .values({ miosalonPatientId, clinicId })
-    .returning();
-  return created;
-}
-
-export async function GET(_req: Request, { params }: Params) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) return jsonError("Unauthorized", 401);
-
-  const clinicId = session.user.clinicId ?? "drjo-skin-revive";
   const miosalonPatientId = decodeURIComponent(params.miosalonPatientId);
 
-  const patient = await resolvePatient(clinicId, miosalonPatientId);
+  const patient = await findScopedPatient(auth, miosalonPatientId);
   if (!patient) return jsonOk({ therapySheets: null });
 
   const meta = (patient.metadata as Record<string, unknown> | null) ?? {};
@@ -76,6 +51,15 @@ const botoxEntrySchema = z.object({
   doctorSign: z.string(),
 });
 
+const attachmentSchema = z.object({
+  id: z.string(),
+  key: z.string(),
+  name: z.string(),
+  contentType: z.string(),
+  size: z.number(),
+  uploadedAt: z.string(),
+});
+
 const profileFormSchema = z.object({
   name: z.string().default(""),
   ageSex: z.string().default(""),
@@ -97,6 +81,8 @@ const profileFormSchema = z.object({
   skinExamination: z.string().default(""),
   hairExamination: z.string().default(""),
   trichoscopyFindings: z.string().default(""),
+  whiteboard: z.string().default(""),
+  attachments: z.array(attachmentSchema).default([]),
 });
 
 const therapySheetsSchema = z.object({
@@ -123,13 +109,13 @@ const therapySheetsSchema = z.object({
     photos: z.array(z.string()),
     createdAt: z.string(),
   })).optional(),
+  attachments: z.array(attachmentSchema).optional(),
 });
 
 export async function PUT(req: Request, { params }: Params) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) return jsonError("Unauthorized", 401);
+  const auth = await requireAuth(req);
+  if (!auth) return unauthorized();
 
-  const clinicId = session.user.clinicId ?? "drjo-skin-revive";
   const miosalonPatientId = decodeURIComponent(params.miosalonPatientId);
 
   let json: unknown;
@@ -144,7 +130,8 @@ export async function PUT(req: Request, { params }: Params) {
     return jsonError("Invalid payload", 400, parsed.error.flatten());
   }
 
-  const patient = await ensurePatient(clinicId, miosalonPatientId);
+  const patient = await ensureScopedPatient(auth, miosalonPatientId);
+  if (!patient) return noBranchAssigned();
   const meta = { ...((patient.metadata as Record<string, unknown> | null) ?? {}) };
   meta.therapySheets = parsed.data;
 

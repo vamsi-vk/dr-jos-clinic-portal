@@ -32,6 +32,7 @@ export async function GET(req: Request, { params }: Params) {
         eq(patients.clinicId, template.clinicId)
       )
     )
+    .orderBy(desc(patients.updatedAt))
     .limit(1);
 
   if (!patient) {

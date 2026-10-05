@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getAppSession } from "@/lib/session";
 import { getClinicSettings } from "@/lib/clinic-settings";
+import { loadUserBranch } from "@/lib/patient-scope";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { NavigationLoading } from "@/components/navigation-loading";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -15,7 +16,8 @@ export default async function DashboardLayout({
   if (!session?.user) redirect("/");
 
   const clinicId = session.user.clinicId ?? "drjo-skin-revive";
-  const clinic = await getClinicSettings(clinicId);
+  const branch = await loadUserBranch(session.user.id);
+  const clinic = await getClinicSettings(clinicId, branch);
 
   return (
     <ThemeProvider>
