@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { formTemplates } from "@/db/schema";
+import { formTemplates, patients } from "@/db/schema";
 import { PublicForm } from "@/components/public-form";
 import { getClinicSettings } from "@/lib/clinic-settings";
 
@@ -30,7 +30,21 @@ export default async function PublicFormPage({ params, searchParams }: PageProps
 
   if (!template || !template.active) notFound();
 
-  const clinic = await getClinicSettings(template.clinicId);
+  const [patient] = miosalonPatientId
+    ? await db
+        .select({ branch: patients.branch })
+        .from(patients)
+        .where(
+          and(
+            eq(patients.miosalonPatientId, miosalonPatientId),
+            eq(patients.clinicId, template.clinicId)
+          )
+        )
+        .orderBy(desc(patients.updatedAt))
+        .limit(1)
+    : [];
+
+  const clinic = await getClinicSettings(template.clinicId, patient?.branch ?? null);
 
   return (
     <div className="min-h-screen bg-background px-4 py-10 sm:py-14">

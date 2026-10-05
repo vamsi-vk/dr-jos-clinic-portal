@@ -52,6 +52,7 @@ export async function POST(req: Request) {
       name: user.name,
       role: user.role,
       clinicId: user.clinicId,
+      branch: user.branch,
     },
   });
 }

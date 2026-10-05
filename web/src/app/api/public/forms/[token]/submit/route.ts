@@ -60,6 +60,7 @@ export async function POST(req: Request, { params }: Params) {
         eq(patients.clinicId, template.clinicId)
       )
     )
+    .orderBy(desc(patients.updatedAt))
     .limit(1);
 
   let patientId: string;

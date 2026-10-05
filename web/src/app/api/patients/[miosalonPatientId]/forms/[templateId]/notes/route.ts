@@ -1,35 +1,12 @@
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { formNotes, formTemplates, patients } from "@/db/schema";
+import { formNotes, formTemplates } from "@/db/schema";
 import { jsonError, jsonOk } from "@/lib/api";
 import { requireAuth, unauthorized } from "@/lib/extension-auth";
+import { ensureScopedPatient, findScopedPatient, noBranchAssigned } from "@/lib/patient-scope";
 
 type Params = { params: { miosalonPatientId: string; templateId: string } };
-
-async function resolvePatient(clinicId: string, miosalonPatientId: string) {
-  const [patient] = await db
-    .select()
-    .from(patients)
-    .where(
-      and(
-        eq(patients.miosalonPatientId, miosalonPatientId),
-        eq(patients.clinicId, clinicId)
-      )
-    )
-    .limit(1);
-  return patient ?? null;
-}
-
-async function ensurePatient(clinicId: string, miosalonPatientId: string) {
-  const existing = await resolvePatient(clinicId, miosalonPatientId);
-  if (existing) return existing;
-  const [created] = await db
-    .insert(patients)
-    .values({ miosalonPatientId, clinicId })
-    .returning();
-  return created;
-}
 
 /** List notes for patient + form + active network/store context */
 export async function GET(req: Request, { params }: Params) {
@@ -44,7 +21,7 @@ export async function GET(req: Request, { params }: Params) {
     return jsonError("networkId and storeId are required", 400);
   }
 
-  const patient = await resolvePatient(auth.clinicId, miosalonPatientId);
+  const patient = await findScopedPatient(auth, miosalonPatientId);
   if (!patient) return jsonOk({ notes: [] });
 
   const notes = await db
@@ -108,7 +85,8 @@ export async function POST(req: Request, { params }: Params) {
 
   if (!template) return jsonError("Form not found", 404);
 
-  const patient = await ensurePatient(auth.clinicId, miosalonPatientId);
+  const patient = await ensureScopedPatient(auth, miosalonPatientId);
+  if (!patient) return noBranchAssigned();
 
   const [note] = await db
     .insert(formNotes)
@@ -150,7 +128,7 @@ export async function PATCH(req: Request, { params }: Params) {
     return jsonError("Invalid payload", 400, parsed.error.flatten());
   }
 
-  const patient = await resolvePatient(auth.clinicId, miosalonPatientId);
+  const patient = await findScopedPatient(auth, miosalonPatientId);
   if (!patient) return jsonError("Customer not found", 404);
 
   const [existing] = await db

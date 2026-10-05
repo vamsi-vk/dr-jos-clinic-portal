@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 
@@ -10,7 +11,14 @@ type ClinicSettings = {
   logoUrl: string | null;
 };
 
-export function ClinicSettingsForm({ initial }: { initial: ClinicSettings }) {
+export function ClinicSettingsForm({
+  initial,
+  branch,
+}: {
+  initial: ClinicSettings;
+  branch: string | null;
+}) {
+  const router = useRouter();
   const [name, setName] = useState(initial.name);
   const [logoUrl, setLogoUrl] = useState(initial.logoUrl);
   const [savingName, setSavingName] = useState(false);
@@ -38,6 +46,7 @@ export function ClinicSettingsForm({ initial }: { initial: ClinicSettings }) {
       }
       setName(data.clinic.name);
       setMessage({ text: "Company name saved", kind: "ok" });
+      router.refresh();
     } catch {
       setMessage({ text: "Could not reach server", kind: "err" });
     } finally {
@@ -63,6 +72,7 @@ export function ClinicSettingsForm({ initial }: { initial: ClinicSettings }) {
       }
       setLogoUrl(data.clinic.logoUrl ?? null);
       setMessage({ text: "Company logo uploaded", kind: "ok" });
+      router.refresh();
     } catch {
       setMessage({ text: "Upload failed — check your connection", kind: "err" });
     } finally {
@@ -87,6 +97,7 @@ export function ClinicSettingsForm({ initial }: { initial: ClinicSettings }) {
       }
       setLogoUrl(null);
       setMessage({ text: "Logo removed", kind: "ok" });
+      router.refresh();
     } catch {
       setMessage({ text: "Could not reach server", kind: "err" });
     } finally {
@@ -98,8 +109,12 @@ export function ClinicSettingsForm({ initial }: { initial: ClinicSettings }) {
     <div className="space-y-6">
       <Card>
         <CardHeader
-          title="Company profile"
-          description="Your clinic name and logo appear in the dashboard sidebar and on shared forms."
+          title={branch ? `Company profile · ${branch} branch` : "Company profile"}
+          description={
+            branch
+              ? `This name and logo are used only for the ${branch} branch, in the dashboard sidebar and on shared forms.`
+              : "Ask an admin to assign a branch to your account to edit the company profile."
+          }
         />
         <CardBody className="space-y-6">
           <div className="space-y-2">
@@ -119,7 +134,7 @@ export function ClinicSettingsForm({ initial }: { initial: ClinicSettings }) {
                 type="button"
                 loading={savingName}
                 onClick={() => void saveName()}
-                disabled={!name.trim()}
+                disabled={!branch || !name.trim()}
               >
                 Save name
               </Button>
@@ -159,6 +174,7 @@ export function ClinicSettingsForm({ initial }: { initial: ClinicSettings }) {
                     type="button"
                     variant="outline"
                     loading={uploading}
+                    disabled={!branch}
                     onClick={() => fileInputRef.current?.click()}
                   >
                     Upload logo

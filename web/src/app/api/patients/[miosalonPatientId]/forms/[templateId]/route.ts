@@ -1,22 +1,12 @@
 import { eq, and, desc } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { patients, formTemplates, formSubmissions } from "@/db/schema";
+import { formTemplates, formSubmissions } from "@/db/schema";
 import { jsonError, jsonOk } from "@/lib/api";
 import { requireAuth, unauthorized } from "@/lib/extension-auth";
+import { ensureScopedPatient, findScopedPatient, noBranchAssigned } from "@/lib/patient-scope";
 
 type Params = { params: { miosalonPatientId: string; templateId: string } };
-
-async function getPatient(clinicId: string, miosalonPatientId: string) {
-  const [patient] = await db
-    .select()
-    .from(patients)
-    .where(
-      and(eq(patients.miosalonPatientId, miosalonPatientId), eq(patients.clinicId, clinicId))
-    )
-    .limit(1);
-  return patient ?? null;
-}
 
 /** Load saved form answers for a patient + template */
 export async function GET(req: Request, { params }: Params) {
@@ -24,7 +14,7 @@ export async function GET(req: Request, { params }: Params) {
   if (!auth) return unauthorized();
 
   const miosalonPatientId = decodeURIComponent(params.miosalonPatientId);
-  const patient = await getPatient(auth.clinicId, miosalonPatientId);
+  const patient = await findScopedPatient(auth, miosalonPatientId);
   if (!patient) return jsonOk({ submission: null, data: {} });
 
   const [submission] = await db
@@ -85,14 +75,8 @@ export async function PUT(req: Request, { params }: Params) {
   const storeId = parsed.data.storeId?.trim() || null;
   const activeUserId = parsed.data.activeUserId?.trim() || null;
 
-  let patient = await getPatient(auth.clinicId, miosalonPatientId);
-  if (!patient) {
-    const [created] = await db
-      .insert(patients)
-      .values({ miosalonPatientId, clinicId: auth.clinicId })
-      .returning();
-    patient = created;
-  }
+  const patient = await ensureScopedPatient(auth, miosalonPatientId);
+  if (!patient) return noBranchAssigned();
 
   const conditions = [
     eq(formSubmissions.patientId, patient.id),

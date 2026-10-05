@@ -1,17 +1,17 @@
-import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { patients } from "@/db/schema";
 import { requireAuth, unauthorized } from "@/lib/extension-auth";
 import { jsonError, jsonOk } from "@/lib/api";
-import { listPatientsForClinic } from "@/lib/patient-queries";
+import { listPatientsForScope } from "@/lib/patient-queries";
+import { findScopedPatient, noBranchAssigned } from "@/lib/patient-scope";
 
-/** List extended patients for the signed-in clinic (portal + extension JWT) */
+/** List extended patients for the signed-in user's branch (portal + extension JWT) */
 export async function GET(req: Request) {
   const auth = await requireAuth(req);
   if (!auth) return unauthorized();
 
-  const rows = await listPatientsForClinic(auth.clinicId);
+  const rows = await listPatientsForScope(auth);
   return jsonOk({ patients: rows, count: rows.length });
 }
 
@@ -31,6 +31,7 @@ function normaliseCustomerId(raw: string) {
 export async function POST(req: Request) {
   const auth = await requireAuth(req);
   if (!auth) return unauthorized();
+  if (!auth.branch) return noBranchAssigned();
 
   let json: unknown;
   try {
@@ -47,14 +48,8 @@ export async function POST(req: Request) {
   const { name, mobile, email, gender, customerId } = parsed.data;
   const miosalonPatientId = normaliseCustomerId(customerId);
 
-  const [dup] = await db
-    .select({ id: patients.id })
-    .from(patients)
-    .where(
-      and(eq(patients.clinicId, auth.clinicId), eq(patients.miosalonPatientId, miosalonPatientId))
-    )
-    .limit(1);
-  if (dup) return jsonError("A client with this ID already exists", 409);
+  const dup = await findScopedPatient(auth, miosalonPatientId);
+  if (dup) return jsonError(`A client with this ID already exists in ${auth.branch}`, 409);
 
   const profile = {
     name,
@@ -70,6 +65,7 @@ export async function POST(req: Request) {
     .values({
       miosalonPatientId,
       clinicId: auth.clinicId,
+      branch: auth.branch,
       metadata: { miosalonProfile: profile, createdInPortal: true },
     })
     .returning();

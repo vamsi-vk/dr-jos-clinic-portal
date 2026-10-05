@@ -1,6 +1,5 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { listPatientsForClinic } from "@/lib/patient-queries";
+import { listPatientsForScope } from "@/lib/patient-queries";
+import { getPortalScope } from "@/lib/patient-scope";
 import { profileFromMetadata } from "@/lib/miosalon-profile";
 import { PatientsTable, type PatientRow } from "@/components/PatientsTable";
 import { CreateClientDialog } from "@/components/CreateClientDialog";
@@ -13,9 +12,8 @@ function formatDate(d: Date) {
 }
 
 export default async function PatientsPage() {
-  const session = await getServerSession(authOptions);
-  const clinicId = session?.user?.clinicId ?? "drjo-skin-revive";
-  const patients = await listPatientsForClinic(clinicId);
+  const scope = await getPortalScope();
+  const patients = scope ? await listPatientsForScope(scope) : [];
 
   const rows: PatientRow[] = patients.map((p) => {
     const profile = profileFromMetadata(p.metadata as Record<string, unknown> | null);
@@ -46,7 +44,9 @@ export default async function PatientsPage() {
           <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Records</p>
           <h1 className="text-2xl font-extrabold text-gray-900 mt-0.5">Clients</h1>
           <p className="text-sm text-gray-500 mt-1">
-            {patients.length} client{patients.length !== 1 ? "s" : ""} linked through the clinic extension
+            {scope?.branch
+              ? `${patients.length} client${patients.length !== 1 ? "s" : ""} in ${scope.branch} branch`
+              : "No branch is assigned to your account, so no clients are shown"}
           </p>
         </div>
         <CreateClientDialog />

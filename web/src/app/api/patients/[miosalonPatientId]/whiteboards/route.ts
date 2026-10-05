@@ -1,10 +1,11 @@
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { z } from "zod";
 import { db } from "@/db";
 import { patients } from "@/db/schema";
 import { jsonError, jsonOk } from "@/lib/api";
 import { requireAuth, unauthorized } from "@/lib/extension-auth";
+import { ensureScopedPatient, findScopedPatient, noBranchAssigned } from "@/lib/patient-scope";
 
 type Params = { params: { miosalonPatientId: string } };
 
@@ -31,31 +32,6 @@ function readWhiteboards(metadata: Record<string, unknown> | null | undefined) {
   );
 }
 
-async function resolveCustomer(clinicId: string, customerId: string) {
-  const [customer] = await db
-    .select()
-    .from(patients)
-    .where(
-      and(
-        eq(patients.miosalonPatientId, customerId),
-        eq(patients.clinicId, clinicId)
-      )
-    )
-    .limit(1);
-  return customer ?? null;
-}
-
-async function ensureCustomer(clinicId: string, customerId: string) {
-  const existing = await resolveCustomer(clinicId, customerId);
-  if (existing) return existing;
-
-  const [created] = await db
-    .insert(patients)
-    .values({ miosalonPatientId: customerId, clinicId })
-    .returning();
-  return created;
-}
-
 export async function GET(req: Request, { params }: Params) {
   const auth = await requireAuth(req);
   if (!auth) return unauthorized();
@@ -68,7 +44,7 @@ export async function GET(req: Request, { params }: Params) {
     return jsonError("networkId and storeId are required", 400);
   }
 
-  const customer = await resolveCustomer(auth.clinicId, customerId);
+  const customer = await findScopedPatient(auth, customerId);
   if (!customer) return jsonOk({ whiteboards: [] });
 
   const whiteboards = readWhiteboards(
@@ -117,7 +93,8 @@ export async function POST(req: Request, { params }: Params) {
   }
 
   const customerId = decodeURIComponent(params.miosalonPatientId);
-  const customer = await ensureCustomer(auth.clinicId, customerId);
+  const customer = await ensureScopedPatient(auth, customerId);
+  if (!customer) return noBranchAssigned();
   const now = new Date().toISOString();
   const whiteboard: StoredWhiteboard = {
     id: randomUUID(),

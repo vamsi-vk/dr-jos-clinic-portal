@@ -8,12 +8,14 @@ declare module "next-auth" {
       name?: string | null;
       role?: string;
       clinicId?: string;
+      branch?: string | null;
     };
   }
 
   interface User {
     role?: string;
     clinicId?: string;
+    branch?: string | null;
   }
 }
 
@@ -22,5 +24,6 @@ declare module "next-auth/jwt" {
     id?: string;
     role?: string;
     clinicId?: string;
+    branch?: string | null;
   }
 }

@@ -4,11 +4,12 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { SignaturePad } from "@/components/signature-pad";
 import { FaceAnnotationSection, newFaceEntry, type FaceEntry } from "@/components/FaceAnnotation";
 import { useConfirm } from "@/components/ConfirmProvider";
-import { emptyProfileForm, type ProfileFormData } from "@/components/ProfileForm";
+import { emptyProfileForm, withProfileDefaults, type ProfileFormData } from "@/components/ProfileForm";
 import { ProfileFormDialog } from "@/components/ProfileFormDialog";
 import { BotoxFillerSection, newBotoxEntry, type BotoxEntry } from "@/components/BotoxFillerRecord";
 import { BodyLhrSection, newBodyEntry, type BodyEntry } from "@/components/BodyLhrRecord";
 import { ClinicalNotesSection, type NoteEntry } from "@/components/ClinicalNotes";
+import { AttachmentsSection, type AttachmentEntry } from "@/components/Attachments";
 
 // ─── Column resize hook ───────────────────────────────────────────────────────
 // DOM-direct during drag — zero React re-renders while dragging.
@@ -72,6 +73,7 @@ export type TherapySheetsData = {
   botoxFiller: BotoxEntry[];
   bodyLhr: BodyEntry[];
   clinicalNotes: NoteEntry[];
+  attachments: AttachmentEntry[];
 };
 
 // ─── Sheet definitions ────────────────────────────────────────────────────────
@@ -210,6 +212,20 @@ const TABS = [
     addBtn: "border-blue-300 text-blue-600 hover:bg-blue-50",
     focusRing: "focus:ring-2 focus:ring-blue-300 focus:border-blue-400",
   },
+  {
+    id: "attachments",
+    label: "Attachments",
+    emoji: "📎",
+    headerBg: "from-emerald-500 to-teal-600",
+    activeBg: "bg-emerald-600",
+    activeText: "text-white",
+    inactiveBg: "hover:bg-emerald-50 hover:text-emerald-700",
+    rowHover: "hover:bg-emerald-50/60",
+    headerRow: "bg-emerald-50 text-emerald-700",
+    border: "border-emerald-200",
+    addBtn: "border-emerald-300 text-emerald-600 hover:bg-emerald-50",
+    focusRing: "focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400",
+  },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -227,6 +243,7 @@ function initData(): TherapySheetsData {
     botoxFiller: [newBotoxEntry()],
     bodyLhr: [newBodyEntry()],
     clinicalNotes: [],
+    attachments: [],
   };
 }
 
@@ -925,11 +942,12 @@ export function TherapySheets({ miosalonPatientId, initialData, patientName, pho
         ? {
             ...initData(),
             ...initialData,
-            profileForm: initialData.profileForm ?? emptyProfileForm(),
+            profileForm: withProfileDefaults(initialData.profileForm),
             faceAnnotations: initialData.faceAnnotations ?? [newFaceEntry()],
             botoxFiller: initialData.botoxFiller ?? [newBotoxEntry()],
             bodyLhr: initialData.bodyLhr ?? [newBodyEntry()],
             clinicalNotes: initialData.clinicalNotes ?? [],
+            attachments: initialData.attachments ?? [],
           }
         : initData()
     );
@@ -994,6 +1012,16 @@ export function TherapySheets({ miosalonPatientId, initialData, patientName, pho
     [miosalonPatientId]
   );
 
+  const dataRef = useRef(data);
+  dataRef.current = data;
+  const lastProfileRef = useRef(profileFormControlled);
+
+  useEffect(() => {
+    if (profileFormControlled === undefined || profileFormControlled === lastProfileRef.current) return;
+    lastProfileRef.current = profileFormControlled;
+    scheduleAutosave(dataRef.current);
+  }, [profileFormControlled, scheduleAutosave]);
+
   function update(patch: Partial<TherapySheetsData>) {
     const next = { ...data, ...patch };
     setData(next);
@@ -1053,6 +1081,7 @@ export function TherapySheets({ miosalonPatientId, initialData, patientName, pho
             {/* Only show button here when not controlled externally */}
             {profileFormControlled === undefined && (
               <ProfileFormDialog
+                miosalonPatientId={miosalonPatientId}
                 data={data.profileForm}
                 onChange={(profileForm) => update({ profileForm })}
               />
@@ -1130,6 +1159,13 @@ export function TherapySheets({ miosalonPatientId, initialData, patientName, pho
             rows={data.mnrfSheet}
             theme={currentTheme}
             onChange={(rows) => update({ mnrfSheet: rows })}
+          />
+        )}
+        {activeTab === "attachments" && (
+          <AttachmentsSection
+            miosalonPatientId={miosalonPatientId}
+            attachments={data.attachments}
+            onChange={(attachments) => update({ attachments })}
           />
         )}
 

@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getPortalScope } from "@/lib/patient-scope";
 import {
   formatFieldValue,
   flattenIntakeFields,
@@ -36,15 +35,15 @@ function InfoChip({ label, value, mono, colorIdx = 0 }: { label: string; value: 
 }
 
 export default async function PatientDetailPage({ params }: Props) {
-  const session = await getServerSession(authOptions);
-  const clinicId = session?.user?.clinicId ?? "drjo-skin-revive";
+  const scope = await getPortalScope();
+  if (!scope) notFound();
   const miosalonPatientId = decodeURIComponent(params.miosalonPatientId);
 
-  const data = await getPatientWithFieldGroups(clinicId, miosalonPatientId);
+  const data = await getPatientWithFieldGroups(scope, miosalonPatientId);
   if (!data) notFound();
 
   const { patient } = data;
-  const intakeForms = await getPatientIntakeForms(clinicId, patient.id);
+  const intakeForms = await getPatientIntakeForms(scope.clinicId, patient.id);
   const therapySheetsData =
     ((patient.metadata as Record<string, unknown> | null)?.therapySheets as TherapySheetsData | null) ?? null;
   const intakeSummary = flattenIntakeFields(intakeForms);

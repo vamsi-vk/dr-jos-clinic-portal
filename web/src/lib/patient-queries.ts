@@ -9,13 +9,16 @@ import {
   formSubmissions,
   type FormField,
 } from "@/db/schema";
+import { findScopedPatient, patientScopeWhere, type BranchScope } from "@/lib/patient-scope";
 
-export async function listPatientsForClinic(clinicId: string) {
+export async function listPatientsForScope(scope: BranchScope) {
+  if (!scope.branch) return [];
   const rows = await db
     .select({
       id: patients.id,
       miosalonPatientId: patients.miosalonPatientId,
       clinicId: patients.clinicId,
+      branch: patients.branch,
       metadata: patients.metadata,
       createdAt: patients.createdAt,
       updatedAt: patients.updatedAt,
@@ -25,28 +28,19 @@ export async function listPatientsForClinic(clinicId: string) {
       )`,
     })
     .from(patients)
-    .where(eq(patients.clinicId, clinicId))
+    .where(patientScopeWhere(scope))
     .orderBy(desc(patients.updatedAt));
 
   return rows;
 }
 
 export async function getPatientWithFieldGroups(
-  clinicId: string,
+  scope: BranchScope,
   miosalonPatientId: string
 ) {
-  const [patient] = await db
-    .select()
-    .from(patients)
-    .where(
-      and(
-        eq(patients.miosalonPatientId, miosalonPatientId),
-        eq(patients.clinicId, clinicId)
-      )
-    )
-    .limit(1);
-
+  const patient = await findScopedPatient(scope, miosalonPatientId);
   if (!patient) return null;
+  const clinicId = scope.clinicId;
 
   const groups = await db
     .select()

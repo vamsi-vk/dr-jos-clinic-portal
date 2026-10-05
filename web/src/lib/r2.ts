@@ -84,3 +84,8 @@ export async function presignedGetUrl(key: string, expiresIn = 3600) {
 export function clinicLogoKey(clinicId: string, ext: string) {
   return `clinics/${clinicId}/logo.${ext}`;
 }
+
+export function branchLogoKey(clinicId: string, branch: string, ext: string) {
+  const slug = branch.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "branch";
+  return `clinics/${clinicId}/branches/${slug}/logo.${ext}`;
+}
